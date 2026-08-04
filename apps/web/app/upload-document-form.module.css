@@ -1,0 +1,134 @@
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  padding: 1.5rem;
+}
+
+.heading {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.input {
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--text);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.submit {
+  align-self: flex-start;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0.625rem 1.125rem;
+  cursor: pointer;
+}
+
+.submit[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.liveRegion {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  min-height: 1.5rem;
+  margin-top: 0.75rem;
+}
+
+.result,
+.error {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-size: 0.9375rem;
+}
+
+.result {
+  background: var(--success-surface);
+  border-color: color-mix(in srgb, var(--success) 35%, transparent);
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: var(--danger-surface);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
+}
+
+.resultLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.result .resultLabel {
+  color: var(--success);
+}
+
+.details {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr;
+  gap: 0.25rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.details dt {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.details dd {
+  overflow-wrap: anywhere;
+}
+
+.identifier {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.resultNote {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+}
