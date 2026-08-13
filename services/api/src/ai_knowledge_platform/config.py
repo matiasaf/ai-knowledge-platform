@@ -12,6 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 SERVICE_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+DEFAULT_MAX_PDF_PAGES = 250
 
 
 class Settings(BaseSettings):
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     max_upload_bytes: Annotated[int, Field(gt=0)] = DEFAULT_MAX_UPLOAD_BYTES
+    max_pdf_pages: Annotated[int, Field(gt=0)] = DEFAULT_MAX_PDF_PAGES
     cors_allow_origins: list[str] = ["http://localhost:3000"]
 
     @field_validator("data_dir")

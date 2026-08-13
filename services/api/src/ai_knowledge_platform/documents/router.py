@@ -1,12 +1,14 @@
 """HTTP surface for document ingestion."""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
 
 from ai_knowledge_platform.config import Settings, get_settings
 from ai_knowledge_platform.documents.domain import PDF_CONTENT_TYPE
-from ai_knowledge_platform.documents.schemas import DocumentResponse
+from ai_knowledge_platform.documents.extraction import extract_stored_document
+from ai_knowledge_platform.documents.schemas import DocumentExtractionResponse, DocumentResponse
 from ai_knowledge_platform.documents.storage import store_document
 from ai_knowledge_platform.errors import ApiError, ErrorCode, ErrorResponse
 
@@ -54,6 +56,29 @@ async def upload_document(
         max_bytes=settings.max_upload_bytes,
     )
     return DocumentResponse.from_domain(document)
+
+
+@router.post(
+    "/documents/{document_id}/extraction",
+    summary="Extract text from a stored PDF",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse},
+    },
+)
+async def extract_document_text(
+    document_id: UUID,
+    settings: SettingsDep,
+) -> DocumentExtractionResponse:
+    """Extract every page, preserving empty pages and one-based page provenance."""
+    document, extraction = await extract_stored_document(
+        document_id,
+        documents_dir=settings.documents_dir,
+        max_pages=settings.max_pdf_pages,
+    )
+    return DocumentExtractionResponse.from_domain(document, extraction)
 
 
 def _base_media_type(content_type: str | None) -> str:

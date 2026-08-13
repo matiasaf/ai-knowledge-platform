@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { uploadDocument } from "@/lib/api";
+import { extractDocument, uploadDocument } from "@/lib/api";
 
 const STORED_RESPONSE = {
   id: "3f6b1c2e-0f5a-4d21-9f4b-1c0f4a2b7d88",
@@ -9,6 +9,21 @@ const STORED_RESPONSE = {
   status: "stored",
   created_at: "2026-08-04T10:00:00Z",
   updated_at: "2026-08-04T10:00:00Z",
+};
+
+const EXTRACTION_RESPONSE = {
+  document: {
+    ...STORED_RESPONSE,
+    status: "extracted",
+    updated_at: "2026-08-04T10:00:01Z",
+  },
+  page_count: 2,
+  empty_page_count: 1,
+  pages: [
+    { page_number: 1, text: "Policy alpha\n", character_count: 13 },
+    { page_number: 2, text: "", character_count: 0 },
+  ],
+  extracted_at: "2026-08-04T10:00:01Z",
 };
 
 function pdfFile(name = "handbook.pdf"): File {
@@ -110,5 +125,69 @@ describe("uploadDocument", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("network_error");
     }
+  });
+});
+
+describe("extractDocument", () => {
+  it("maps page text and its one-based provenance onto the client shape", async () => {
+    const fetchMock = mockFetch(EXTRACTION_RESPONSE, 200);
+
+    const result = await extractDocument(STORED_RESPONSE.id);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        document: {
+          id: STORED_RESPONSE.id,
+          filename: "handbook.pdf",
+          byteSize: 2048,
+          contentType: "application/pdf",
+          status: "extracted",
+          createdAt: STORED_RESPONSE.created_at,
+          updatedAt: EXTRACTION_RESPONSE.document.updated_at,
+        },
+        pageCount: 2,
+        emptyPageCount: 1,
+        pages: [
+          { pageNumber: 1, text: "Policy alpha\n", characterCount: 13 },
+          { pageNumber: 2, text: "", characterCount: 0 },
+        ],
+        extractedAt: EXTRACTION_RESPONSE.extracted_at,
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`/documents/${STORED_RESPONSE.id}/extraction$`)),
+      { method: "POST" },
+    );
+  });
+
+  it("surfaces an extraction error while ignoring undocumented failure shapes", async () => {
+    mockFetch({ error: { code: "encrypted_pdf", message: "A password is required." } }, 422);
+    expect(await extractDocument(STORED_RESPONSE.id)).toEqual({
+      ok: false,
+      error: { code: "encrypted_pdf", message: "A password is required." },
+    });
+
+    mockFetch({ detail: "parser internals" }, 500);
+    const malformed = await extractDocument(STORED_RESPONSE.id);
+    expect(malformed.ok).toBe(false);
+    if (!malformed.ok) {
+      expect(malformed.error.message).not.toContain("parser internals");
+    }
+  });
+
+  it("rejects page arrays whose provenance or character count is inconsistent", async () => {
+    mockFetch(
+      {
+        ...EXTRACTION_RESPONSE,
+        pages: [{ page_number: 2, text: "Policy alpha", character_count: 999 }],
+        page_count: 1,
+      },
+      200,
+    );
+
+    const result = await extractDocument(STORED_RESPONSE.id);
+
+    expect(result.ok).toBe(false);
   });
 });

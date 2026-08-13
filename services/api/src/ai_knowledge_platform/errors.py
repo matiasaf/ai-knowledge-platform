@@ -13,6 +13,11 @@ class ErrorCode(StrEnum):
     """Codes clients may branch on. Treat every member as part of the public contract."""
 
     FILE_TOO_LARGE = "file_too_large"
+    DOCUMENT_NOT_FOUND = "document_not_found"
+    ENCRYPTED_PDF = "encrypted_pdf"
+    EXTRACTION_IN_PROGRESS = "extraction_in_progress"
+    PDF_EXTRACTION_FAILED = "pdf_extraction_failed"
+    PDF_PAGE_LIMIT_EXCEEDED = "pdf_page_limit_exceeded"
     INVALID_PDF = "invalid_pdf"
     MISSING_FILENAME = "missing_filename"
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"

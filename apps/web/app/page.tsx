@@ -5,11 +5,12 @@ const IMPLEMENTED = [
   "PDF uploads validated by declared media type and by the %PDF- file signature",
   "A configurable size limit enforced while the upload streams, in bounded chunks",
   "Each accepted file stored under a generated identifier with a metadata sidecar",
+  "Bounded text extraction that keeps one-based page provenance and records empty pages",
   "Structured API errors with stable codes that this UI renders as real states",
 ];
 
 const NOT_IMPLEMENTED = [
-  "Text extraction with page-level provenance",
+  "OCR for scanned pages without a text layer",
   "Chunking, embeddings and retrieval",
   "Answers with verifiable citations",
   "Retrieval and answer evaluations",
@@ -24,8 +25,8 @@ export default function Home() {
         <h1 className={styles.title}>Evidence-first knowledge for teams</h1>
         <p className={styles.lede}>
           Ingest trusted documents, ask questions about them, and get grounded answers with
-          citations you can verify against the source. This build covers the first slice: ingestion
-          you can actually see.
+          citations you can verify against the source. This build stores trusted PDFs and extracts
+          text page by page, without pretending retrieval exists yet.
         </p>
       </header>
 

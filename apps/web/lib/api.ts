@@ -7,10 +7,9 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-/** Mirrors the only status the API can currently report. */
-export type DocumentStatus = "stored";
+export type DocumentStatus = "stored" | "processing" | "extracted" | "extraction_failed";
 
-export interface StoredDocument {
+export interface ApiDocument {
   id: string;
   filename: string;
   byteSize: number;
@@ -18,6 +17,22 @@ export interface StoredDocument {
   status: DocumentStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+export type StoredDocument = ApiDocument & { status: "stored" };
+
+export interface ExtractedPage {
+  pageNumber: number;
+  text: string;
+  characterCount: number;
+}
+
+export interface DocumentExtraction {
+  document: ApiDocument & { status: "extracted" };
+  pageCount: number;
+  emptyPageCount: number;
+  pages: ExtractedPage[];
+  extractedAt: string;
 }
 
 export interface ApiFailure {
@@ -30,6 +45,11 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiFailur
 const GENERIC_FAILURE: ApiFailure = {
   code: "unexpected_error",
   message: "The upload could not be completed. Please try again.",
+};
+
+const GENERIC_EXTRACTION_FAILURE: ApiFailure = {
+  code: "unexpected_error",
+  message: "Text extraction could not be completed. The original PDF is still stored.",
 };
 
 const NETWORK_FAILURE: ApiFailure = {
@@ -56,7 +76,33 @@ export async function uploadDocument(file: File): Promise<ApiResult<StoredDocume
   }
 
   const document = parseDocument(payload);
-  return document ? { ok: true, data: document } : { ok: false, error: GENERIC_FAILURE };
+  return document?.status === "stored"
+    ? { ok: true, data: { ...document, status: "stored" } }
+    : { ok: false, error: GENERIC_FAILURE };
+}
+
+export async function extractDocument(documentId: string): Promise<ApiResult<DocumentExtraction>> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/extraction`,
+      {
+        method: "POST",
+      },
+    );
+  } catch {
+    return { ok: false, error: NETWORK_FAILURE };
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    return { ok: false, error: parseFailure(payload) ?? GENERIC_EXTRACTION_FAILURE };
+  }
+
+  const extraction = parseExtraction(payload);
+  return extraction
+    ? { ok: true, data: extraction }
+    : { ok: false, error: GENERIC_EXTRACTION_FAILURE };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -78,7 +124,7 @@ function parseFailure(payload: unknown): ApiFailure | null {
   return { code, message };
 }
 
-function parseDocument(payload: unknown): StoredDocument | null {
+function parseDocument(payload: unknown): ApiDocument | null {
   if (!isRecord(payload)) {
     return null;
   }
@@ -88,7 +134,7 @@ function parseDocument(payload: unknown): StoredDocument | null {
     typeof filename !== "string" ||
     typeof byte_size !== "number" ||
     typeof content_type !== "string" ||
-    status !== "stored" ||
+    !isDocumentStatus(status) ||
     typeof created_at !== "string" ||
     typeof updated_at !== "string"
   ) {
@@ -103,4 +149,68 @@ function parseDocument(payload: unknown): StoredDocument | null {
     createdAt: created_at,
     updatedAt: updated_at,
   };
+}
+
+function parseExtraction(payload: unknown): DocumentExtraction | null {
+  if (!isRecord(payload) || !Array.isArray(payload.pages)) {
+    return null;
+  }
+  const { document: rawDocument, page_count, empty_page_count, pages, extracted_at } = payload;
+  const document = parseDocument(rawDocument);
+  const parsedPages = pages.map(parseExtractedPage);
+  if (
+    document?.status !== "extracted" ||
+    typeof page_count !== "number" ||
+    !Number.isInteger(page_count) ||
+    page_count < 0 ||
+    typeof empty_page_count !== "number" ||
+    !Number.isInteger(empty_page_count) ||
+    empty_page_count < 0 ||
+    empty_page_count > page_count ||
+    typeof extracted_at !== "string" ||
+    parsedPages.some((page) => page === null) ||
+    page_count !== parsedPages.length
+  ) {
+    return null;
+  }
+
+  const validatedPages = parsedPages as ExtractedPage[];
+  if (validatedPages.some((page, index) => page.pageNumber !== index + 1)) {
+    return null;
+  }
+  return {
+    document: { ...document, status: "extracted" },
+    pageCount: page_count,
+    emptyPageCount: empty_page_count,
+    pages: validatedPages,
+    extractedAt: extracted_at,
+  };
+}
+
+function parseExtractedPage(payload: unknown): ExtractedPage | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const { page_number, text, character_count } = payload;
+  if (
+    typeof page_number !== "number" ||
+    !Number.isInteger(page_number) ||
+    page_number < 1 ||
+    typeof text !== "string" ||
+    typeof character_count !== "number" ||
+    !Number.isInteger(character_count) ||
+    character_count !== text.length
+  ) {
+    return null;
+  }
+  return { pageNumber: page_number, text, characterCount: character_count };
+}
+
+function isDocumentStatus(value: unknown): value is DocumentStatus {
+  return (
+    value === "stored" ||
+    value === "processing" ||
+    value === "extracted" ||
+    value === "extraction_failed"
+  );
 }

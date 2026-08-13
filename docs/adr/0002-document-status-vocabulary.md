@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-04
+- Last updated: 2026-08-12
 
 ## Context
 
@@ -9,25 +10,32 @@ Document ingestion UIs conventionally show `uploading → processing → ready`.
 tempting to ship that vocabulary immediately, because it looks like the finished
 product and costs nothing to render.
 
-Nothing in this build parses, chunks or indexes a PDF. A `processing` state would be a
-label with no work behind it, and `ready` would tell a user the document can be
-questioned when it cannot.
+At milestone 1 nothing parsed, chunked or indexed a PDF. A `processing` state would
+have been a label with no work behind it, and `ready` would have told a user the
+document could be questioned when it could not.
 
 ## Decision
 
-`DocumentStatus` has exactly one member, `stored`. The API returns it, the UI renders
-it, and the copy next to it says the file is saved and has not been parsed. New
-members are added in the same change that implements the work they describe.
+At milestone 1, `DocumentStatus` had exactly one member: `stored`. New members are
+added only in the same change that implements the work they describe.
 
-The same rule applies to the UI: its state machine is `idle | uploading | stored |
-error`, where `uploading` describes the in-flight HTTP request rather than any
-server-side pipeline.
+Milestone 2 adds `processing`, `extracted` and `extraction_failed`. `processing` is
+persisted before the PDF parser starts, `extracted` only after the complete page set is
+atomically stored, and `extraction_failed` preserves a retryable distinction from a
+plain upload. `ready` remains absent because extracted text is not chunked, indexed or
+queryable.
+
+The UI mirrors those boundaries: browser upload progress is distinct from server-side
+page extraction, and an extraction failure still shows that the original PDF was
+accepted.
 
 ## Consequences
 
-- A single-member enum looks odd out of context, so the reason lives in its docstring.
-- Screenshots of this milestone show less than a mockup would. That is the point: what
+- Clients that switch on status must handle additive members; the frontend validates
+  the entire documented vocabulary before rendering.
+- A process killed mid-extraction can leave persisted metadata at `processing`. A new
+  process treats that as interrupted work and permits an explicit retry.
+- Screenshots still show less than a finished product mockup. That is the point: what
   is on screen is what runs.
-- Adding `processing` and `ready` later is an additive API change. Clients that switch
-  on status will need to handle them, which is why the codes are documented as part of
-  the public contract from the start.
+- `ready` will be introduced only when the document can satisfy the operation that the
+  word promises.

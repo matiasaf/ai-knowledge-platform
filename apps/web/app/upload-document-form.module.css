@@ -132,3 +132,84 @@
   color: var(--text-muted);
   margin-top: 0.75rem;
 }
+
+.extractionSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.extractionSummary div {
+  min-width: 8rem;
+  border: 1px solid color-mix(in srgb, var(--success) 20%, transparent);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface);
+  padding: 0.625rem 0.75rem;
+}
+
+.extractionSummary dt,
+.pageLabel,
+.previewHeading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.extractionSummary dd {
+  margin-top: 0.125rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.extractionError {
+  margin-top: 0.875rem;
+  color: var(--danger);
+}
+
+.secondaryAction {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.previews {
+  margin-top: 1rem;
+}
+
+.previewHeading {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pageList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+  list-style: none;
+}
+
+.page {
+  border-left: 2px solid color-mix(in srgb, var(--success) 35%, transparent);
+  padding-left: 0.75rem;
+}
+
+.pageText {
+  max-height: 8rem;
+  overflow: auto;
+  margin-top: 0.25rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

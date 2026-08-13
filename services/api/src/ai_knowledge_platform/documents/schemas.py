@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from ai_knowledge_platform.documents.domain import Document, DocumentStatus
+from ai_knowledge_platform.documents.domain import Document, DocumentExtraction, DocumentStatus
 
 
 class DocumentResponse(BaseModel):
@@ -31,4 +31,39 @@ class DocumentResponse(BaseModel):
             status=document.status,
             created_at=document.created_at,
             updated_at=document.updated_at,
+        )
+
+
+class ExtractedPageResponse(BaseModel):
+    page_number: int
+    text: str
+    character_count: int
+
+
+class DocumentExtractionResponse(BaseModel):
+    document: DocumentResponse
+    page_count: int
+    empty_page_count: int
+    pages: list[ExtractedPageResponse]
+    extracted_at: datetime
+
+    @classmethod
+    def from_domain(
+        cls,
+        document: Document,
+        extraction: DocumentExtraction,
+    ) -> "DocumentExtractionResponse":
+        return cls(
+            document=DocumentResponse.from_domain(document),
+            page_count=extraction.page_count,
+            empty_page_count=extraction.empty_page_count,
+            pages=[
+                ExtractedPageResponse(
+                    page_number=page.page_number,
+                    text=page.text,
+                    character_count=page.character_count,
+                )
+                for page in extraction.pages
+            ],
+            extracted_at=extraction.extracted_at,
         )

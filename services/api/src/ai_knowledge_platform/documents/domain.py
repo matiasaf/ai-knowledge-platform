@@ -10,13 +10,12 @@ PDF_SIGNATURE = b"%PDF-"
 
 
 class DocumentStatus(StrEnum):
-    """Only states the platform can actually reach are modelled.
-
-    `processing` and `ready` are deliberately absent: advertising them before text
-    extraction and indexing exist would make the API promise capabilities it lacks.
-    """
+    """States backed by concrete storage or extraction work."""
 
     STORED = "stored"
+    PROCESSING = "processing"
+    EXTRACTED = "extracted"
+    EXTRACTION_FAILED = "extraction_failed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,3 +40,42 @@ class Document:
             created_at=now,
             updated_at=now,
         )
+
+    def with_status(self, status: DocumentStatus) -> "Document":
+        """Return a new snapshot after a real ingestion state transition."""
+        return Document(
+            id=self.id,
+            filename=self.filename,
+            byte_size=self.byte_size,
+            content_type=self.content_type,
+            status=status,
+            created_at=self.created_at,
+            updated_at=datetime.now(UTC),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractedPage:
+    """Text span whose one-based page number is its source provenance."""
+
+    page_number: int
+    text: str
+
+    @property
+    def character_count(self) -> int:
+        return len(self.text)
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentExtraction:
+    document_id: UUID
+    pages: tuple[ExtractedPage, ...]
+    extracted_at: datetime
+
+    @property
+    def page_count(self) -> int:
+        return len(self.pages)
+
+    @property
+    def empty_page_count(self) -> int:
+        return sum(not page.text.strip() for page in self.pages)

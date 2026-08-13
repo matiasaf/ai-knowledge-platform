@@ -1,13 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ApiResult, StoredDocument } from "@/lib/api";
+import type { ApiResult, DocumentExtraction, StoredDocument } from "@/lib/api";
 import { UploadDocumentForm } from "./upload-document-form";
 
-vi.mock("@/lib/api", () => ({ uploadDocument: vi.fn() }));
+vi.mock("@/lib/api", () => ({ extractDocument: vi.fn(), uploadDocument: vi.fn() }));
 
 // Imported after the mock so the test drives the same function the component calls.
-const { uploadDocument } = await import("@/lib/api");
+const { extractDocument, uploadDocument } = await import("@/lib/api");
+const extractDocumentMock = vi.mocked(extractDocument);
 const uploadDocumentMock = vi.mocked(uploadDocument);
 
 const STORED_DOCUMENT: StoredDocument = {
@@ -20,6 +21,21 @@ const STORED_DOCUMENT: StoredDocument = {
   updatedAt: "2026-08-04T10:00:00Z",
 };
 
+const EXTRACTION: DocumentExtraction = {
+  document: {
+    ...STORED_DOCUMENT,
+    status: "extracted",
+    updatedAt: "2026-08-04T10:00:01Z",
+  },
+  pageCount: 2,
+  emptyPageCount: 1,
+  pages: [
+    { pageNumber: 1, text: "Policy alpha", characterCount: 12 },
+    { pageNumber: 2, text: "", characterCount: 0 },
+  ],
+  extractedAt: "2026-08-04T10:00:01Z",
+};
+
 function pdfFile(name = "handbook.pdf"): File {
   return new File([new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])], name, {
     type: "application/pdf",
@@ -27,12 +43,12 @@ function pdfFile(name = "handbook.pdf"): File {
 }
 
 /** A promise the test resolves by hand, so the in-flight state can be asserted. */
-function deferred(): {
-  promise: Promise<ApiResult<StoredDocument>>;
-  resolve: (value: ApiResult<StoredDocument>) => void;
+function deferred<T>(): {
+  promise: Promise<ApiResult<T>>;
+  resolve: (value: ApiResult<T>) => void;
 } {
-  let resolve!: (value: ApiResult<StoredDocument>) => void;
-  const promise = new Promise<ApiResult<StoredDocument>>((res) => {
+  let resolve!: (value: ApiResult<T>) => void;
+  const promise = new Promise<ApiResult<T>>((res) => {
     resolve = res;
   });
   return { promise, resolve };
@@ -48,6 +64,8 @@ function fileInput(): HTMLInputElement {
 }
 
 beforeEach(() => {
+  extractDocumentMock.mockReset();
+  extractDocumentMock.mockResolvedValue({ ok: true, data: EXTRACTION });
   uploadDocumentMock.mockReset();
 });
 
@@ -56,7 +74,7 @@ describe("UploadDocumentForm", () => {
     render(<UploadDocumentForm />);
 
     expect(submitButton()).toHaveAttribute("aria-disabled", "true");
-    expect(screen.queryByRole("region", { name: "Stored" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Text extracted" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -77,7 +95,7 @@ describe("UploadDocumentForm", () => {
   });
 
   it("announces progress and blocks resubmission while the upload is in flight", async () => {
-    const pending = deferred();
+    const pending = deferred<StoredDocument>();
     uploadDocumentMock.mockReturnValue(pending.promise);
     render(<UploadDocumentForm />);
 
@@ -94,25 +112,51 @@ describe("UploadDocumentForm", () => {
 
     pending.resolve({ ok: true, data: STORED_DOCUMENT });
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Stored" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Text extracted" })).toBeInTheDocument();
     });
   });
 
-  it("reports the stored document and clears the field for the next upload", async () => {
+  it("reports the extracted pages and clears the field for the next upload", async () => {
     uploadDocumentMock.mockResolvedValue({ ok: true, data: STORED_DOCUMENT });
     render(<UploadDocumentForm />);
 
     await userEvent.upload(fileInput(), pdfFile());
     await userEvent.click(submitButton());
 
-    const result = await screen.findByRole("region", { name: "Stored" });
+    const result = await screen.findByRole("region", { name: "Text extracted" });
     expect(result).toHaveTextContent("handbook.pdf");
     expect(result).toHaveTextContent("2.0 KB");
     expect(result).toHaveTextContent(STORED_DOCUMENT.id);
+    expect(result).toHaveTextContent("Pages2");
+    expect(result).toHaveTextContent("Pages without text1");
+    expect(result).toHaveTextContent("Page 1");
+    expect(result).toHaveTextContent("Policy alpha");
+    expect(result).toHaveTextContent("No extractable text on this page.");
+    expect(extractDocumentMock).toHaveBeenCalledWith(STORED_DOCUMENT.id);
 
     expect(fileInput().files).toHaveLength(0);
     expect(submitButton()).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("status")).toHaveTextContent("");
+  });
+
+  it("announces page extraction and keeps the form locked while parsing is in flight", async () => {
+    const pending = deferred<DocumentExtraction>();
+    uploadDocumentMock.mockResolvedValue({ ok: true, data: STORED_DOCUMENT });
+    extractDocumentMock.mockReturnValue(pending.promise);
+    render(<UploadDocumentForm />);
+
+    await userEvent.upload(fileInput(), pdfFile());
+    await userEvent.click(submitButton());
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Extracting text from handbook.pdf, page by page",
+    );
+    expect(submitButton()).toHaveTextContent("Extracting text");
+    expect(submitButton()).toHaveAttribute("aria-disabled", "true");
+    expect(fileInput()).toBeDisabled();
+
+    pending.resolve({ ok: true, data: EXTRACTION });
+    expect(await screen.findByRole("region", { name: "Text extracted" })).toBeInTheDocument();
   });
 
   it("moves focus to the result on success so the outcome is the next thing read", async () => {
@@ -123,7 +167,7 @@ describe("UploadDocumentForm", () => {
     await userEvent.click(submitButton());
 
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Stored" })).toHaveFocus();
+      expect(screen.getByRole("region", { name: "Text extracted" })).toHaveFocus();
     });
   });
 
@@ -139,7 +183,8 @@ describe("UploadDocumentForm", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("File content is not a PDF.");
-    expect(screen.queryByRole("region", { name: "Stored" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Text extracted" })).not.toBeInTheDocument();
+    expect(extractDocumentMock).not.toHaveBeenCalled();
   });
 
   it("keeps focus and the chosen file on the form after a failure so it can be retried", async () => {
@@ -156,5 +201,28 @@ describe("UploadDocumentForm", () => {
     expect(submitButton()).toHaveFocus();
     expect(fileInput().files).toHaveLength(1);
     expect(submitButton()).toHaveAttribute("aria-disabled", "false");
+  });
+
+  it("keeps an uploaded PDF and offers a retry when only extraction fails", async () => {
+    uploadDocumentMock.mockResolvedValue({ ok: true, data: STORED_DOCUMENT });
+    extractDocumentMock.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "encrypted_pdf", message: "Encrypted PDFs require a password." },
+    });
+    render(<UploadDocumentForm />);
+
+    await userEvent.upload(fileInput(), pdfFile("protected.pdf"));
+    await userEvent.click(submitButton());
+
+    const result = await screen.findByRole("region", { name: "Stored — extraction failed" });
+    expect(result).toHaveTextContent(STORED_DOCUMENT.id);
+    expect(screen.getByRole("alert")).toHaveTextContent("Encrypted PDFs require a password.");
+    expect(fileInput().files).toHaveLength(0);
+
+    extractDocumentMock.mockResolvedValueOnce({ ok: true, data: EXTRACTION });
+    await userEvent.click(screen.getByRole("button", { name: "Retry text extraction" }));
+
+    expect(await screen.findByRole("region", { name: "Text extracted" })).toBeInTheDocument();
+    expect(extractDocumentMock).toHaveBeenCalledTimes(2);
   });
 });
