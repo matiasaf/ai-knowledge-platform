@@ -2,7 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-04
-- Last updated: 2026-08-12
+- Last updated: 2026-08-13
 
 ## Context
 
@@ -25,9 +25,13 @@ atomically stored, and `extraction_failed` preserves a retryable distinction fro
 plain upload. `ready` remains absent because extracted text is not chunked, indexed or
 queryable.
 
+Milestone 3 adds `indexing`, `indexed` and `indexing_failed`. `indexed` means page-
+bounded chunks are committed to the local retrieval database and can be searched. It
+still does not mean the system can formulate or validate an answer.
+
 The UI mirrors those boundaries: browser upload progress is distinct from server-side
-page extraction, and an extraction failure still shows that the original PDF was
-accepted.
+page extraction and indexing, while either failure still shows the work that completed
+before it.
 
 ## Consequences
 

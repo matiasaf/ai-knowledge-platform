@@ -1,14 +1,19 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ApiResult, DocumentExtraction, StoredDocument } from "@/lib/api";
+import type { ApiResult, DocumentExtraction, DocumentIndex, StoredDocument } from "@/lib/api";
 import { UploadDocumentForm } from "./upload-document-form";
 
-vi.mock("@/lib/api", () => ({ extractDocument: vi.fn(), uploadDocument: vi.fn() }));
+vi.mock("@/lib/api", () => ({
+  extractDocument: vi.fn(),
+  indexDocument: vi.fn(),
+  uploadDocument: vi.fn(),
+}));
 
 // Imported after the mock so the test drives the same function the component calls.
-const { extractDocument, uploadDocument } = await import("@/lib/api");
+const { extractDocument, indexDocument, uploadDocument } = await import("@/lib/api");
 const extractDocumentMock = vi.mocked(extractDocument);
+const indexDocumentMock = vi.mocked(indexDocument);
 const uploadDocumentMock = vi.mocked(uploadDocument);
 
 const STORED_DOCUMENT: StoredDocument = {
@@ -34,6 +39,16 @@ const EXTRACTION: DocumentExtraction = {
     { pageNumber: 2, text: "", characterCount: 0 },
   ],
   extractedAt: "2026-08-04T10:00:01Z",
+};
+
+const DOCUMENT_INDEX: DocumentIndex = {
+  document: {
+    ...STORED_DOCUMENT,
+    status: "indexed",
+    updatedAt: "2026-08-04T10:00:02Z",
+  },
+  chunkCount: 1,
+  indexedAt: "2026-08-04T10:00:02Z",
 };
 
 function pdfFile(name = "handbook.pdf"): File {
@@ -66,6 +81,8 @@ function fileInput(): HTMLInputElement {
 beforeEach(() => {
   extractDocumentMock.mockReset();
   extractDocumentMock.mockResolvedValue({ ok: true, data: EXTRACTION });
+  indexDocumentMock.mockReset();
+  indexDocumentMock.mockResolvedValue({ ok: true, data: DOCUMENT_INDEX });
   uploadDocumentMock.mockReset();
 });
 
@@ -74,7 +91,7 @@ describe("UploadDocumentForm", () => {
     render(<UploadDocumentForm />);
 
     expect(submitButton()).toHaveAttribute("aria-disabled", "true");
-    expect(screen.queryByRole("region", { name: "Text extracted" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Indexed for retrieval" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -112,7 +129,7 @@ describe("UploadDocumentForm", () => {
 
     pending.resolve({ ok: true, data: STORED_DOCUMENT });
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Text extracted" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Indexed for retrieval" })).toBeInTheDocument();
     });
   });
 
@@ -123,16 +140,18 @@ describe("UploadDocumentForm", () => {
     await userEvent.upload(fileInput(), pdfFile());
     await userEvent.click(submitButton());
 
-    const result = await screen.findByRole("region", { name: "Text extracted" });
+    const result = await screen.findByRole("region", { name: "Indexed for retrieval" });
     expect(result).toHaveTextContent("handbook.pdf");
     expect(result).toHaveTextContent("2.0 KB");
     expect(result).toHaveTextContent(STORED_DOCUMENT.id);
     expect(result).toHaveTextContent("Pages2");
     expect(result).toHaveTextContent("Pages without text1");
+    expect(result).toHaveTextContent("Evidence chunks1");
     expect(result).toHaveTextContent("Page 1");
     expect(result).toHaveTextContent("Policy alpha");
     expect(result).toHaveTextContent("No extractable text on this page.");
     expect(extractDocumentMock).toHaveBeenCalledWith(STORED_DOCUMENT.id);
+    expect(indexDocumentMock).toHaveBeenCalledWith(STORED_DOCUMENT.id);
 
     expect(fileInput().files).toHaveLength(0);
     expect(submitButton()).toHaveAttribute("aria-disabled", "true");
@@ -156,7 +175,30 @@ describe("UploadDocumentForm", () => {
     expect(fileInput()).toBeDisabled();
 
     pending.resolve({ ok: true, data: EXTRACTION });
-    expect(await screen.findByRole("region", { name: "Text extracted" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Indexed for retrieval" }),
+    ).toBeInTheDocument();
+  });
+
+  it("announces evidence indexing and keeps the form locked while indexing is in flight", async () => {
+    const pending = deferred<DocumentIndex>();
+    uploadDocumentMock.mockResolvedValue({ ok: true, data: STORED_DOCUMENT });
+    indexDocumentMock.mockReturnValue(pending.promise);
+    render(<UploadDocumentForm />);
+
+    await userEvent.upload(fileInput(), pdfFile());
+    await userEvent.click(submitButton());
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Building searchable evidence from handbook.pdf",
+    );
+    expect(submitButton()).toHaveTextContent("Indexing evidence");
+    expect(fileInput()).toBeDisabled();
+
+    pending.resolve({ ok: true, data: DOCUMENT_INDEX });
+    expect(
+      await screen.findByRole("region", { name: "Indexed for retrieval" }),
+    ).toBeInTheDocument();
   });
 
   it("moves focus to the result on success so the outcome is the next thing read", async () => {
@@ -167,7 +209,7 @@ describe("UploadDocumentForm", () => {
     await userEvent.click(submitButton());
 
     await waitFor(() => {
-      expect(screen.getByRole("region", { name: "Text extracted" })).toHaveFocus();
+      expect(screen.getByRole("region", { name: "Indexed for retrieval" })).toHaveFocus();
     });
   });
 
@@ -183,7 +225,7 @@ describe("UploadDocumentForm", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("File content is not a PDF.");
-    expect(screen.queryByRole("region", { name: "Text extracted" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Indexed for retrieval" })).not.toBeInTheDocument();
     expect(extractDocumentMock).not.toHaveBeenCalled();
   });
 
@@ -222,7 +264,35 @@ describe("UploadDocumentForm", () => {
     extractDocumentMock.mockResolvedValueOnce({ ok: true, data: EXTRACTION });
     await userEvent.click(screen.getByRole("button", { name: "Retry text extraction" }));
 
-    expect(await screen.findByRole("region", { name: "Text extracted" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Indexed for retrieval" }),
+    ).toBeInTheDocument();
     expect(extractDocumentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps extracted pages and retries when only indexing fails", async () => {
+    uploadDocumentMock.mockResolvedValue({ ok: true, data: STORED_DOCUMENT });
+    indexDocumentMock.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "unexpected_error", message: "The local index is unavailable." },
+    });
+    render(<UploadDocumentForm />);
+
+    await userEvent.upload(fileInput(), pdfFile());
+    await userEvent.click(submitButton());
+
+    const result = await screen.findByRole("region", {
+      name: "Text extracted — indexing failed",
+    });
+    expect(result).toHaveTextContent(STORED_DOCUMENT.id);
+    expect(screen.getByRole("alert")).toHaveTextContent("The local index is unavailable.");
+
+    indexDocumentMock.mockResolvedValueOnce({ ok: true, data: DOCUMENT_INDEX });
+    await userEvent.click(screen.getByRole("button", { name: "Retry evidence indexing" }));
+
+    expect(
+      await screen.findByRole("region", { name: "Indexed for retrieval" }),
+    ).toBeInTheDocument();
+    expect(indexDocumentMock).toHaveBeenCalledTimes(2);
   });
 });

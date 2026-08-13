@@ -16,6 +16,9 @@ class DocumentStatus(StrEnum):
     PROCESSING = "processing"
     EXTRACTED = "extracted"
     EXTRACTION_FAILED = "extraction_failed"
+    INDEXING = "indexing"
+    INDEXED = "indexed"
+    INDEXING_FAILED = "indexing_failed"
 
 
 @dataclass(frozen=True, slots=True)

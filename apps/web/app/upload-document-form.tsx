@@ -2,8 +2,11 @@
 
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import {
+  type ApiDocument,
   type DocumentExtraction,
+  type DocumentIndex,
   extractDocument,
+  indexDocument,
   type StoredDocument,
   uploadDocument,
 } from "@/lib/api";
@@ -13,9 +16,11 @@ type UploadState =
   | { status: "idle" }
   | { status: "uploading"; filename: string }
   | { status: "processing"; document: StoredDocument }
-  | { status: "extracted"; extraction: DocumentExtraction }
+  | { status: "indexing"; extraction: DocumentExtraction }
+  | { status: "indexed"; extraction: DocumentExtraction; index: DocumentIndex }
   | { status: "upload-error"; message: string }
-  | { status: "extraction-error"; document: StoredDocument; message: string };
+  | { status: "extraction-error"; document: StoredDocument; message: string }
+  | { status: "indexing-error"; extraction: DocumentExtraction; message: string };
 
 export function UploadDocumentForm() {
   const fileInputId = useId();
@@ -26,13 +31,14 @@ export function UploadDocumentForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  const isWorking = state.status === "uploading" || state.status === "processing";
+  const isWorking =
+    state.status === "uploading" || state.status === "processing" || state.status === "indexing";
 
   useEffect(() => {
     // Focus moves forward only on success, where the result is the next thing to read.
     // Failures keep focus on the form so a different file can be chosen immediately;
     // role="alert" announces them without stealing the caret.
-    if (state.status === "extracted") {
+    if (state.status === "indexed") {
       resultRef.current?.focus();
     }
   }, [state]);
@@ -61,7 +67,7 @@ export function UploadDocumentForm() {
     setState({ status: "processing", document });
     const result = await extractDocument(document.id);
     if (result.ok) {
-      setState({ status: "extracted", extraction: result.data });
+      await runIndexing(result.data);
       return;
     }
     setState({ status: "extraction-error", document, message: result.error.message });
@@ -70,6 +76,22 @@ export function UploadDocumentForm() {
   async function handleExtractionRetry() {
     if (state.status === "extraction-error") {
       await runExtraction(state.document);
+    }
+  }
+
+  async function runIndexing(extraction: DocumentExtraction) {
+    setState({ status: "indexing", extraction });
+    const result = await indexDocument(extraction.document.id);
+    if (result.ok) {
+      setState({ status: "indexed", extraction, index: result.data });
+      return;
+    }
+    setState({ status: "indexing-error", extraction, message: result.error.message });
+  }
+
+  async function handleIndexingRetry() {
+    if (state.status === "indexing-error") {
+      await runIndexing(state.extraction);
     }
   }
 
@@ -115,7 +137,9 @@ export function UploadDocumentForm() {
             ? "Uploading…"
             : state.status === "processing"
               ? "Extracting text…"
-              : "Upload document"}
+              : state.status === "indexing"
+                ? "Indexing evidence…"
+                : "Upload document"}
         </button>
       </form>
 
@@ -124,7 +148,9 @@ export function UploadDocumentForm() {
           ? `Uploading ${state.filename}…`
           : state.status === "processing"
             ? `Extracting text from ${state.document.filename}, page by page…`
-            : ""}
+            : state.status === "indexing"
+              ? `Building searchable evidence from ${state.extraction.document.filename}…`
+              : ""}
       </p>
 
       {state.status === "upload-error" && (
@@ -149,7 +175,22 @@ export function UploadDocumentForm() {
         </section>
       )}
 
-      {state.status === "extracted" && (
+      {state.status === "indexing-error" && (
+        <section aria-labelledby={resultHeadingId} className={styles.result}>
+          <h3 className={styles.resultLabel} id={resultHeadingId}>
+            Text extracted — indexing failed
+          </h3>
+          <DocumentDetails document={state.extraction.document} />
+          <p className={styles.extractionError} role="alert">
+            {state.message}
+          </p>
+          <button className={styles.secondaryAction} onClick={handleIndexingRetry} type="button">
+            Retry evidence indexing
+          </button>
+        </section>
+      )}
+
+      {state.status === "indexed" && (
         // A named region so that receiving focus announces what this is, rather than
         // reading out the first line of content with no context.
         <section
@@ -159,9 +200,9 @@ export function UploadDocumentForm() {
           tabIndex={-1}
         >
           <h3 className={styles.resultLabel} id={resultHeadingId}>
-            Text extracted
+            Indexed for retrieval
           </h3>
-          <DocumentDetails document={state.extraction.document} />
+          <DocumentDetails document={state.index.document} />
           <dl className={styles.extractionSummary}>
             <div>
               <dt>Pages</dt>
@@ -170,6 +211,10 @@ export function UploadDocumentForm() {
             <div>
               <dt>Pages without text</dt>
               <dd>{state.extraction.emptyPageCount}</dd>
+            </div>
+            <div>
+              <dt>Evidence chunks</dt>
+              <dd>{state.index.chunkCount}</dd>
             </div>
           </dl>
           {state.extraction.pages.length > 0 && (
@@ -188,8 +233,8 @@ export function UploadDocumentForm() {
             </div>
           )}
           <p className={styles.resultNote}>
-            The original PDF is unchanged. Extracted text is stored with its page number; it has not
-            been chunked or indexed yet.
+            The original PDF is unchanged. Every searchable chunk retains its document and page
+            provenance; no answer has been generated.
           </p>
         </section>
       )}
@@ -197,11 +242,7 @@ export function UploadDocumentForm() {
   );
 }
 
-function DocumentDetails({
-  document,
-}: {
-  document: StoredDocument | DocumentExtraction["document"];
-}) {
+function DocumentDetails({ document }: { document: ApiDocument }) {
   return (
     <dl className={styles.details}>
       <dt>File</dt>

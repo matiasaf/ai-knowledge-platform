@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "name": "retrieval-v1-policy-pages",
+  "chunk_size_chars": 180,
+  "chunk_overlap_chars": 30,
+  "k": 3,
+  "thresholds": {
+    "recall_at_k": 1.0,
+    "mrr_at_k": 1.0
+  },
+  "documents": [
+    {
+      "document_id": "11111111-1111-4111-8111-111111111111",
+      "filename": "employee-handbook.pdf",
+      "pages": [
+        {
+          "page_number": 1,
+          "text": "The approved countries for remote work are Argentina and Uruguay. Working from another country requires written approval from People Operations."
+        },
+        {
+          "page_number": 2,
+          "text": "Full-time employees receive twenty business days of annual leave each calendar year. Leave requests are submitted in the people portal."
+        }
+      ]
+    },
+    {
+      "document_id": "22222222-2222-4222-8222-222222222222",
+      "filename": "security-runbook.pdf",
+      "pages": [
+        {
+          "page_number": 1,
+          "text": "A lost company device must be reported to the Security team within one hour. Include the device identifier and last known location."
+        },
+        {
+          "page_number": 2,
+          "text": "Production credentials must be rotated every ninety days. Emergency credentials are rotated immediately after each use."
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "remote-work-countries",
+      "query": "Which countries are approved for remote work?",
+      "relevant_pages": [
+        {
+          "document_id": "11111111-1111-4111-8111-111111111111",
+          "page_number": 1
+        }
+      ]
+    },
+    {
+      "id": "annual-leave-allowance",
+      "query": "How many business days of annual leave do employees receive?",
+      "relevant_pages": [
+        {
+          "document_id": "11111111-1111-4111-8111-111111111111",
+          "page_number": 2
+        }
+      ]
+    },
+    {
+      "id": "lost-device-reporting",
+      "query": "How soon must a lost company device be reported?",
+      "relevant_pages": [
+        {
+          "document_id": "22222222-2222-4222-8222-222222222222",
+          "page_number": 1
+        }
+      ]
+    },
+    {
+      "id": "credential-rotation",
+      "query": "How often are production credentials rotated?",
+      "relevant_pages": [
+        {
+          "document_id": "22222222-2222-4222-8222-222222222222",
+          "page_number": 2
+        }
+      ]
+    }
+  ]
+}

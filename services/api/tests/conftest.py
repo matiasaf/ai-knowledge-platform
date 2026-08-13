@@ -13,6 +13,8 @@ from ai_knowledge_platform.main import create_app
 # constraint under test.
 MAX_UPLOAD_BYTES = 4096
 MAX_PDF_PAGES = 2
+CHUNK_SIZE_CHARS = 80
+CHUNK_OVERLAP_CHARS = 15
 
 
 def build_text_pdf(page_texts: list[str]) -> bytes:
@@ -78,6 +80,8 @@ def settings(tmp_path: Path) -> Settings:
         data_dir=tmp_path / "data",
         max_upload_bytes=MAX_UPLOAD_BYTES,
         max_pdf_pages=MAX_PDF_PAGES,
+        chunk_size_chars=CHUNK_SIZE_CHARS,
+        chunk_overlap_chars=CHUNK_OVERLAP_CHARS,
     )
 
 

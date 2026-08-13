@@ -7,6 +7,7 @@ from ai_knowledge_platform import __version__, health
 from ai_knowledge_platform.config import Settings, get_settings
 from ai_knowledge_platform.documents import router as documents
 from ai_knowledge_platform.errors import register_error_handlers
+from ai_knowledge_platform.retrieval import router as retrieval
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -27,6 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(documents.router)
+    app.include_router(retrieval.router)
     return app
 
 

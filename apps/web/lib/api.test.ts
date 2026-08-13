@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractDocument, uploadDocument } from "@/lib/api";
+import { extractDocument, indexDocument, searchEvidence, uploadDocument } from "@/lib/api";
 
 const STORED_RESPONSE = {
   id: "3f6b1c2e-0f5a-4d21-9f4b-1c0f4a2b7d88",
@@ -24,6 +24,33 @@ const EXTRACTION_RESPONSE = {
     { page_number: 2, text: "", character_count: 0 },
   ],
   extracted_at: "2026-08-04T10:00:01Z",
+};
+
+const INDEX_RESPONSE = {
+  document: {
+    ...STORED_RESPONSE,
+    status: "indexed",
+    updated_at: "2026-08-04T10:00:02Z",
+  },
+  chunk_count: 1,
+  indexed_at: "2026-08-04T10:00:02Z",
+};
+
+const SEARCH_RESPONSE = {
+  query: "annual leave",
+  match_count: 1,
+  matches: [
+    {
+      rank: 1,
+      document_id: STORED_RESPONSE.id,
+      filename: "handbook.pdf",
+      page_number: 2,
+      chunk_index: 0,
+      text: "Policy alpha",
+      start_offset: 10,
+      end_offset: 22,
+    },
+  ],
 };
 
 function pdfFile(name = "handbook.pdf"): File {
@@ -189,5 +216,93 @@ describe("extractDocument", () => {
     const result = await extractDocument(STORED_RESPONSE.id);
 
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("indexDocument", () => {
+  it("maps indexed document metadata and posts without a request body", async () => {
+    const fetchMock = mockFetch(INDEX_RESPONSE, 200);
+
+    const result = await indexDocument(STORED_RESPONSE.id);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        document: {
+          id: STORED_RESPONSE.id,
+          filename: "handbook.pdf",
+          byteSize: 2048,
+          contentType: "application/pdf",
+          status: "indexed",
+          createdAt: STORED_RESPONSE.created_at,
+          updatedAt: INDEX_RESPONSE.document.updated_at,
+        },
+        chunkCount: 1,
+        indexedAt: INDEX_RESPONSE.indexed_at,
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`/documents/${STORED_RESPONSE.id}/index$`)),
+      { method: "POST" },
+    );
+  });
+
+  it("rejects index metadata whose document is not indexed", async () => {
+    mockFetch({ ...INDEX_RESPONSE, document: EXTRACTION_RESPONSE.document }, 200);
+
+    expect((await indexDocument(STORED_RESPONSE.id)).ok).toBe(false);
+  });
+});
+
+describe("searchEvidence", () => {
+  it("posts plain language and maps ranked page evidence", async () => {
+    const fetchMock = mockFetch(SEARCH_RESPONSE, 200);
+
+    const result = await searchEvidence("annual leave", 3);
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        query: "annual leave",
+        matchCount: 1,
+        matches: [
+          {
+            rank: 1,
+            documentId: STORED_RESPONSE.id,
+            filename: "handbook.pdf",
+            pageNumber: 2,
+            chunkIndex: 0,
+            text: "Policy alpha",
+            startOffset: 10,
+            endOffset: 22,
+          },
+        ],
+      },
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toEqual({ "Content-Type": "application/json" });
+    expect(JSON.parse(init.body as string)).toEqual({ query: "annual leave", limit: 3 });
+  });
+
+  it("rejects inconsistent result ranks and match counts", async () => {
+    mockFetch(
+      {
+        ...SEARCH_RESPONSE,
+        match_count: 2,
+        matches: [{ ...SEARCH_RESPONSE.matches[0], rank: 2 }],
+      },
+      200,
+    );
+
+    expect((await searchEvidence("annual leave")).ok).toBe(false);
+  });
+
+  it("surfaces the documented search error envelope", async () => {
+    mockFetch({ error: { code: "search_query_empty", message: "Use a letter or number." } }, 422);
+
+    expect(await searchEvidence("--")).toEqual({
+      ok: false,
+      error: { code: "search_query_empty", message: "Use a letter or number." },
+    });
   });
 });

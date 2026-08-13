@@ -27,6 +27,11 @@ check-api: ## Lint, format-check, type-check and test the API
 	cd $(API_DIR) && uv run ruff format --check .
 	cd $(API_DIR) && uv run mypy
 	cd $(API_DIR) && uv run pytest
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
+
+.PHONY: eval-retrieval
+eval-retrieval: ## Run the fixed retrieval evaluation and enforce its thresholds
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
 
 .PHONY: check-web
 check-web: ## Lint, type-check, test, build and audit the web app

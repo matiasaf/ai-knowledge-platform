@@ -46,7 +46,13 @@ async def extract_stored_document(
 
     try:
         document = load_document(documents_dir, document_id)
-        if document.status is DocumentStatus.EXTRACTED:
+        downstream_statuses = {
+            DocumentStatus.EXTRACTED,
+            DocumentStatus.INDEXING,
+            DocumentStatus.INDEXED,
+            DocumentStatus.INDEXING_FAILED,
+        }
+        if document.status in downstream_statuses:
             return document, load_extraction(documents_dir, document_id)
 
         processing = update_document_status(document, DocumentStatus.PROCESSING, documents_dir)

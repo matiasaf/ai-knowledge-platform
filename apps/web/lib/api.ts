@@ -7,7 +7,14 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-export type DocumentStatus = "stored" | "processing" | "extracted" | "extraction_failed";
+export type DocumentStatus =
+  | "stored"
+  | "processing"
+  | "extracted"
+  | "extraction_failed"
+  | "indexing"
+  | "indexed"
+  | "indexing_failed";
 
 export interface ApiDocument {
   id: string;
@@ -20,6 +27,7 @@ export interface ApiDocument {
 }
 
 export type StoredDocument = ApiDocument & { status: "stored" };
+export type IndexedDocument = ApiDocument & { status: "indexed" };
 
 export interface ExtractedPage {
   pageNumber: number;
@@ -33,6 +41,29 @@ export interface DocumentExtraction {
   emptyPageCount: number;
   pages: ExtractedPage[];
   extractedAt: string;
+}
+
+export interface DocumentIndex {
+  document: IndexedDocument;
+  chunkCount: number;
+  indexedAt: string;
+}
+
+export interface RetrievalMatch {
+  rank: number;
+  documentId: string;
+  filename: string;
+  pageNumber: number;
+  chunkIndex: number;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+}
+
+export interface RetrievalSearch {
+  query: string;
+  matchCount: number;
+  matches: RetrievalMatch[];
 }
 
 export interface ApiFailure {
@@ -50,6 +81,16 @@ const GENERIC_FAILURE: ApiFailure = {
 const GENERIC_EXTRACTION_FAILURE: ApiFailure = {
   code: "unexpected_error",
   message: "Text extraction could not be completed. The original PDF is still stored.",
+};
+
+const GENERIC_INDEXING_FAILURE: ApiFailure = {
+  code: "unexpected_error",
+  message: "The extracted text could not be indexed. You can retry without uploading again.",
+};
+
+const GENERIC_SEARCH_FAILURE: ApiFailure = {
+  code: "unexpected_error",
+  message: "Evidence search could not be completed. Please try again.",
 };
 
 const NETWORK_FAILURE: ApiFailure = {
@@ -103,6 +144,61 @@ export async function extractDocument(documentId: string): Promise<ApiResult<Doc
   return extraction
     ? { ok: true, data: extraction }
     : { ok: false, error: GENERIC_EXTRACTION_FAILURE };
+}
+
+export async function indexDocument(documentId: string): Promise<ApiResult<DocumentIndex>> {
+  const result = await postJson(
+    `${API_BASE_URL}/documents/${encodeURIComponent(documentId)}/index`,
+    undefined,
+    GENERIC_INDEXING_FAILURE,
+  );
+  if (!result.ok) {
+    return result;
+  }
+  const documentIndex = parseDocumentIndex(result.data);
+  return documentIndex
+    ? { ok: true, data: documentIndex }
+    : { ok: false, error: GENERIC_INDEXING_FAILURE };
+}
+
+export async function searchEvidence(
+  query: string,
+  limit = 5,
+): Promise<ApiResult<RetrievalSearch>> {
+  const result = await postJson(
+    `${API_BASE_URL}/retrieval/search`,
+    { query, limit },
+    GENERIC_SEARCH_FAILURE,
+  );
+  if (!result.ok) {
+    return result;
+  }
+  const search = parseRetrievalSearch(result.data);
+  return search ? { ok: true, data: search } : { ok: false, error: GENERIC_SEARCH_FAILURE };
+}
+
+async function postJson(
+  url: string,
+  body: object | undefined,
+  fallback: ApiFailure,
+): Promise<ApiResult<unknown>> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      ...(body === undefined
+        ? {}
+        : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    });
+  } catch {
+    return { ok: false, error: NETWORK_FAILURE };
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    return { ok: false, error: parseFailure(payload) ?? fallback };
+  }
+  return { ok: true, data: payload };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -187,6 +283,91 @@ function parseExtraction(payload: unknown): DocumentExtraction | null {
   };
 }
 
+function parseDocumentIndex(payload: unknown): DocumentIndex | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const { document: rawDocument, chunk_count, indexed_at } = payload;
+  const document = parseDocument(rawDocument);
+  if (
+    document?.status !== "indexed" ||
+    typeof chunk_count !== "number" ||
+    !Number.isInteger(chunk_count) ||
+    chunk_count < 0 ||
+    typeof indexed_at !== "string"
+  ) {
+    return null;
+  }
+  return {
+    document: { ...document, status: "indexed" },
+    chunkCount: chunk_count,
+    indexedAt: indexed_at,
+  };
+}
+
+function parseRetrievalSearch(payload: unknown): RetrievalSearch | null {
+  if (!isRecord(payload) || !Array.isArray(payload.matches)) {
+    return null;
+  }
+  const { query, match_count, matches } = payload;
+  const parsedMatches = matches.map(parseRetrievalMatch);
+  if (
+    typeof query !== "string" ||
+    typeof match_count !== "number" ||
+    !Number.isInteger(match_count) ||
+    match_count < 0 ||
+    match_count !== parsedMatches.length ||
+    parsedMatches.some((match) => match === null)
+  ) {
+    return null;
+  }
+  const validatedMatches = parsedMatches as RetrievalMatch[];
+  if (validatedMatches.some((match, index) => match.rank !== index + 1)) {
+    return null;
+  }
+  return { query, matchCount: match_count, matches: validatedMatches };
+}
+
+function parseRetrievalMatch(payload: unknown): RetrievalMatch | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const { rank, document_id, filename, page_number, chunk_index, text, start_offset, end_offset } =
+    payload;
+  if (
+    typeof rank !== "number" ||
+    !Number.isInteger(rank) ||
+    rank < 1 ||
+    typeof document_id !== "string" ||
+    typeof filename !== "string" ||
+    typeof page_number !== "number" ||
+    !Number.isInteger(page_number) ||
+    page_number < 1 ||
+    typeof chunk_index !== "number" ||
+    !Number.isInteger(chunk_index) ||
+    chunk_index < 0 ||
+    typeof text !== "string" ||
+    typeof start_offset !== "number" ||
+    !Number.isInteger(start_offset) ||
+    start_offset < 0 ||
+    typeof end_offset !== "number" ||
+    !Number.isInteger(end_offset) ||
+    end_offset <= start_offset
+  ) {
+    return null;
+  }
+  return {
+    rank,
+    documentId: document_id,
+    filename,
+    pageNumber: page_number,
+    chunkIndex: chunk_index,
+    text,
+    startOffset: start_offset,
+    endOffset: end_offset,
+  };
+}
+
 function parseExtractedPage(payload: unknown): ExtractedPage | null {
   if (!isRecord(payload)) {
     return null;
@@ -211,6 +392,9 @@ function isDocumentStatus(value: unknown): value is DocumentStatus {
     value === "stored" ||
     value === "processing" ||
     value === "extracted" ||
-    value === "extraction_failed"
+    value === "extraction_failed" ||
+    value === "indexing" ||
+    value === "indexed" ||
+    value === "indexing_failed"
   );
 }

@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Anchoring relative paths to the service root keeps `uv run` behaviour identical
@@ -13,6 +13,8 @@ SERVICE_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 DEFAULT_MAX_PDF_PAGES = 250
+DEFAULT_CHUNK_SIZE_CHARS = 1000
+DEFAULT_CHUNK_OVERLAP_CHARS = 150
 
 
 class Settings(BaseSettings):
@@ -28,6 +30,8 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_upload_bytes: Annotated[int, Field(gt=0)] = DEFAULT_MAX_UPLOAD_BYTES
     max_pdf_pages: Annotated[int, Field(gt=0)] = DEFAULT_MAX_PDF_PAGES
+    chunk_size_chars: Annotated[int, Field(gt=0)] = DEFAULT_CHUNK_SIZE_CHARS
+    chunk_overlap_chars: Annotated[int, Field(ge=0)] = DEFAULT_CHUNK_OVERLAP_CHARS
     cors_allow_origins: list[str] = ["http://localhost:3000"]
 
     @field_validator("data_dir")
@@ -44,9 +48,19 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    @model_validator(mode="after")
+    def _validate_chunk_window(self) -> "Settings":
+        if self.chunk_overlap_chars >= self.chunk_size_chars:
+            raise ValueError("chunk_overlap_chars must be smaller than chunk_size_chars")
+        return self
+
     @property
     def documents_dir(self) -> Path:
         return self.data_dir / "documents"
+
+    @property
+    def knowledge_db_path(self) -> Path:
+        return self.data_dir / "knowledge.db"
 
 
 @lru_cache

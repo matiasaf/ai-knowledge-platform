@@ -1,3 +1,4 @@
+import { EvidenceSearch } from "./evidence-search";
 import styles from "./page.module.css";
 import { UploadDocumentForm } from "./upload-document-form";
 
@@ -6,14 +7,16 @@ const IMPLEMENTED = [
   "A configurable size limit enforced while the upload streams, in bounded chunks",
   "Each accepted file stored under a generated identifier with a metadata sidecar",
   "Bounded text extraction that keeps one-based page provenance and records empty pages",
+  "Page-bounded chunks indexed locally and returned as ranked, attributable evidence",
+  "A versioned retrieval evaluation with enforced Recall@3 and MRR@3 thresholds",
   "Structured API errors with stable codes that this UI renders as real states",
 ];
 
 const NOT_IMPLEMENTED = [
   "OCR for scanned pages without a text layer",
-  "Chunking, embeddings and retrieval",
+  "Embeddings and semantic or hybrid retrieval",
   "Answers with verifiable citations",
-  "Retrieval and answer evaluations",
+  "Answer faithfulness evaluations",
   "Latency, token, cost and failure observability",
 ];
 
@@ -25,12 +28,14 @@ export default function Home() {
         <h1 className={styles.title}>Evidence-first knowledge for teams</h1>
         <p className={styles.lede}>
           Ingest trusted documents, ask questions about them, and get grounded answers with
-          citations you can verify against the source. This build stores trusted PDFs and extracts
-          text page by page, without pretending retrieval exists yet.
+          citations you can verify against the source. This build stores trusted PDFs, indexes
+          page-attributable passages and retrieves evidence without inventing an answer.
         </p>
       </header>
 
       <UploadDocumentForm />
+
+      <EvidenceSearch />
 
       <section aria-labelledby="scope-heading" className={styles.scope}>
         <h2 className={styles.scopeHeading} id="scope-heading">

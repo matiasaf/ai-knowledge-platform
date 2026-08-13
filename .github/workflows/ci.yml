@@ -42,6 +42,9 @@ jobs:
       - name: Test
         run: uv run pytest
 
+      - name: Evaluate retrieval
+        run: uv run python -m ai_knowledge_platform.retrieval.evaluation
+
   web:
     name: Web (Next.js)
     runs-on: ubuntu-latest
