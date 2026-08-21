@@ -66,6 +66,32 @@ export interface RetrievalSearch {
   matches: RetrievalMatch[];
 }
 
+export type AnswerOutcome = "answered" | "insufficient_evidence" | "safety_refused";
+
+export interface GroundedClaim {
+  text: string;
+  citationIds: string[];
+}
+
+export interface Citation {
+  id: string;
+  documentId: string;
+  filename: string;
+  pageNumber: number;
+  chunkIndex: number;
+  startOffset: number;
+  endOffset: number;
+  excerpt: string;
+  sourcePath: string;
+}
+
+export interface GroundedAnswer {
+  question: string;
+  outcome: AnswerOutcome;
+  claims: GroundedClaim[];
+  citations: Citation[];
+}
+
 export interface ApiFailure {
   code: string;
   message: string;
@@ -91,6 +117,11 @@ const GENERIC_INDEXING_FAILURE: ApiFailure = {
 const GENERIC_SEARCH_FAILURE: ApiFailure = {
   code: "unexpected_error",
   message: "Evidence search could not be completed. Please try again.",
+};
+
+const GENERIC_ANSWER_FAILURE: ApiFailure = {
+  code: "unexpected_error",
+  message: "A grounded answer could not be completed. Please try again.",
 };
 
 const NETWORK_FAILURE: ApiFailure = {
@@ -175,6 +206,26 @@ export async function searchEvidence(
   }
   const search = parseRetrievalSearch(result.data);
   return search ? { ok: true, data: search } : { ok: false, error: GENERIC_SEARCH_FAILURE };
+}
+
+export async function answerQuestion(
+  question: string,
+  documentId?: string,
+): Promise<ApiResult<GroundedAnswer>> {
+  const result = await postJson(
+    `${API_BASE_URL}/answers`,
+    { question, ...(documentId === undefined ? {} : { document_id: documentId }) },
+    GENERIC_ANSWER_FAILURE,
+  );
+  if (!result.ok) {
+    return result;
+  }
+  const answer = parseGroundedAnswer(result.data);
+  return answer ? { ok: true, data: answer } : { ok: false, error: GENERIC_ANSWER_FAILURE };
+}
+
+export function documentSourceUrl(citation: Citation): string {
+  return `${API_BASE_URL}${citation.sourcePath}#page=${citation.pageNumber}`;
 }
 
 async function postJson(
@@ -368,6 +419,113 @@ function parseRetrievalMatch(payload: unknown): RetrievalMatch | null {
   };
 }
 
+function parseGroundedAnswer(payload: unknown): GroundedAnswer | null {
+  if (!isRecord(payload) || !Array.isArray(payload.claims) || !Array.isArray(payload.citations)) {
+    return null;
+  }
+  const { question, outcome, claims, citations } = payload;
+  if (typeof question !== "string" || !isAnswerOutcome(outcome)) {
+    return null;
+  }
+
+  const parsedClaims = claims.map(parseGroundedClaim);
+  const parsedCitations = citations.map(parseCitation);
+  if (
+    parsedClaims.some((claim) => claim === null) ||
+    parsedCitations.some((citation) => citation === null)
+  ) {
+    return null;
+  }
+  const validatedClaims = parsedClaims as GroundedClaim[];
+  const validatedCitations = parsedCitations as Citation[];
+  if (new Set(validatedClaims.map((claim) => claim.text)).size !== validatedClaims.length) {
+    return null;
+  }
+  const citationIds = new Set(validatedCitations.map((citation) => citation.id));
+  const usedCitationIds = new Set(validatedClaims.flatMap((claim) => claim.citationIds));
+  if (
+    citationIds.size !== validatedCitations.length ||
+    [...usedCitationIds].some((id) => !citationIds.has(id)) ||
+    [...citationIds].some((id) => !usedCitationIds.has(id))
+  ) {
+    return null;
+  }
+
+  if (outcome === "answered") {
+    if (validatedClaims.length === 0 || validatedCitations.length === 0) {
+      return null;
+    }
+  } else if (validatedClaims.length !== 0 || validatedCitations.length !== 0) {
+    return null;
+  }
+  return { question, outcome, claims: validatedClaims, citations: validatedCitations };
+}
+
+function parseGroundedClaim(payload: unknown): GroundedClaim | null {
+  if (!isRecord(payload) || typeof payload.text !== "string" || payload.text.length === 0) {
+    return null;
+  }
+  if (
+    !Array.isArray(payload.citation_ids) ||
+    payload.citation_ids.length === 0 ||
+    payload.citation_ids.some((id) => typeof id !== "string")
+  ) {
+    return null;
+  }
+  return { text: payload.text, citationIds: payload.citation_ids as string[] };
+}
+
+function parseCitation(payload: unknown): Citation | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const {
+    id,
+    document_id,
+    filename,
+    page_number,
+    chunk_index,
+    start_offset,
+    end_offset,
+    excerpt,
+    source_path,
+  } = payload;
+  if (
+    typeof id !== "string" ||
+    !/^C[1-9]\d*$/.test(id) ||
+    typeof document_id !== "string" ||
+    typeof filename !== "string" ||
+    typeof page_number !== "number" ||
+    !Number.isInteger(page_number) ||
+    page_number < 1 ||
+    typeof chunk_index !== "number" ||
+    !Number.isInteger(chunk_index) ||
+    chunk_index < 0 ||
+    typeof start_offset !== "number" ||
+    !Number.isInteger(start_offset) ||
+    start_offset < 0 ||
+    typeof end_offset !== "number" ||
+    !Number.isInteger(end_offset) ||
+    end_offset <= start_offset ||
+    typeof excerpt !== "string" ||
+    excerpt.length !== end_offset - start_offset ||
+    source_path !== `/documents/${document_id}/content`
+  ) {
+    return null;
+  }
+  return {
+    id,
+    documentId: document_id,
+    filename,
+    pageNumber: page_number,
+    chunkIndex: chunk_index,
+    startOffset: start_offset,
+    endOffset: end_offset,
+    excerpt,
+    sourcePath: source_path,
+  };
+}
+
 function parseExtractedPage(payload: unknown): ExtractedPage | null {
   if (!isRecord(payload)) {
     return null;
@@ -397,4 +555,8 @@ function isDocumentStatus(value: unknown): value is DocumentStatus {
     value === "indexed" ||
     value === "indexing_failed"
   );
+}
+
+function isAnswerOutcome(value: unknown): value is AnswerOutcome {
+  return value === "answered" || value === "insufficient_evidence" || value === "safety_refused";
 }

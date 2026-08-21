@@ -5,6 +5,7 @@ description = "Evidence-first knowledge platform API"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "openai>=2.21,<3",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pypdf>=6.12,<7",

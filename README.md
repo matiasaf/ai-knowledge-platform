@@ -3,11 +3,12 @@
 Ingest trusted documents, ask questions about them, get grounded answers with
 verifiable citations, and observe retrieval quality, latency, failures and cost.
 
-**Status: milestone 3 of an in-progress project.** Document ingestion, page-level PDF
-text extraction and measured lexical retrieval work end to end. Generated answers and
-citations are not built yet, and nothing in this repository pretends otherwise. The
-[roadmap](#roadmap) says what comes next; [`docs/progress`](docs/progress) records what
-each milestone actually delivered.
+**Status: milestone 4 implemented; live provider acceptance pending.** Document
+ingestion, page-level extraction, measured lexical retrieval and the complete grounded
+answer pipeline run locally. Provider-independent tests pass, but no API key was
+available to select a model or record live answer-quality metrics. The
+[roadmap](#roadmap) distinguishes implemented code from accepted milestones;
+[`docs/progress`](docs/progress) records what each slice actually delivered.
 
 ## The problem
 
@@ -50,6 +51,9 @@ Backend
   replaces that document in the local retrieval index.
 - `POST /retrieval/search`, which returns ranked evidence across all indexed documents
   or within one document.
+- `POST /answers`, which retrieves its own evidence and returns answered,
+  insufficient-evidence or safety-refused outcomes.
+- `GET /documents/{id}/content`, which opens the stored PDF for citation verification.
 - Two-layer validation: the declared media type **and** the `%PDF-` file signature, so
   a `.txt` renamed to `.pdf` is rejected.
 - A configurable size limit (10 MB by default) enforced while the request streams in
@@ -74,6 +78,13 @@ Backend
   as raw FTS syntax.
 - A fixed two-document, four-query evaluation with enforced Recall@3 and MRR@3
   thresholds; both currently score 1.0.
+- An answer generator port with an async OpenAI Responses API adapter, Structured
+  Outputs, stateless requests, bounded retries and explicit provider failures.
+- Server-resolved citations: the model may reference only request-local evidence IDs;
+  document, page, chunk, offsets and source paths are built from trusted retrieval
+  matches.
+- A versioned 13-case answer dataset and live runner that keeps answer quality separate
+  from retrieval quality.
 - One error envelope for every failure, including framework validation errors, with
   stable machine-readable codes.
 - CORS limited to the configured frontend origin.
@@ -89,6 +100,9 @@ Frontend
   correct retry without repeating upload.
 - A separate evidence search renders ranked excerpts with filename, page, document ID
   and chunk provenance. Zero matches are shown as a retrieval miss, not an answer.
+- A grounded-question surface renders atomic claims, navigable citation markers,
+  excerpts and links to the source PDF, plus distinct insufficient-evidence,
+  safety-refusal and technical-error states.
 - Failures render through `role="alert"`; progress announces through a polite live
   region; focus moves to the result only on success, so a failure leaves the caret on
   the form. The submit button uses `aria-disabled` rather than `disabled`, because
@@ -101,30 +115,35 @@ Frontend
 Listed so the scope of this repository is not overstated. None of the following exists
 in any form here:
 
-OCR · embeddings · semantic or hybrid retrieval · vector search · pgvector · any LLM
-call · question answering · citations · answer evaluation · latency, token and cost
-observability · feedback capture · guardrails · authentication · multi-tenancy ·
-PostgreSQL · Docker Compose · background workers or queues · cloud infrastructure · a
-design system · non-PDF file types · document listing endpoints.
+OCR · embeddings · semantic or hybrid retrieval · vector search · pgvector ·
+conversation history · persisted answers · streaming · live model acceptance results ·
+latency, token and cost observability · feedback capture · authentication ·
+multi-tenancy · PostgreSQL · Docker Compose · background workers or queues · cloud
+infrastructure · a design system · non-PDF file types · document listing endpoints.
 
 ## Architecture
 
 ```
 Browser ──────────────► Next.js App Router (apps/web)
-                          │  upload → extract → index; evidence search
+                          │  upload → extract → index; evidence search; grounded answers
                           ▼
                         FastAPI (services/api)
                           ├─ streaming validation + bounded pypdf extraction
                           │    {uuid}.pdf              unmodified upload
                           │    {uuid}.json             document state
                           │    {uuid}.extraction.json  page text
-                          └─ deterministic chunking + SQLite FTS5/BM25
-                               knowledge.db            documents, chunks, search index
+                          ├─ deterministic chunking + SQLite FTS5/BM25
+                          │    knowledge.db            documents, chunks, search index
+                          └─ answer service → AnswerGenerator port
+                                               │ selected chunks + question only
+                                               ▼
+                                            OpenAI Responses API (when configured)
 ```
 
-The API is a single process with an embedded SQLite database, no queue and no external
-service. The web app is a static-rendered shell whose client components perform the
-ingestion workflow and evidence searches.
+The API is a single process with an embedded SQLite database and no queue. OpenAI is an
+optional external dependency used only for answers. The web app is a static-rendered
+shell whose client components perform ingestion, evidence search and grounded
+questions.
 
 Inside the API, the request path is deliberately short: the route handler validates the
 declared media type, then `store_document` streams, validates and persists. Extraction
@@ -158,6 +177,7 @@ vector store.
 │   ├── evals/                 versioned retrieval corpus, queries and thresholds
 │   └── tests/                 pytest suite, temporary data directories only
 ├── docs/adr/                  architecture decision records
+├── docs/plans/                detailed designs for the next implementation slice
 ├── docs/progress/             what each milestone actually delivered
 ├── .github/workflows/ci.yml   separate backend and frontend jobs
 └── Makefile                   the same gates CI runs
@@ -192,11 +212,12 @@ cd apps/web     && npm ci  && npm run dev
 ```
 
 Open <http://localhost:3000> and upload a PDF. The UI stores it, extracts every page,
-indexes attributable chunks and enables evidence search. Runtime artifacts appear
-under `services/api/data/`, which is Git-ignored.
+indexes attributable chunks and enables evidence search. Grounded answers additionally
+require the two OpenAI settings below. Runtime artifacts appear under
+`services/api/data/`, which is Git-ignored.
 
-Defaults work with no configuration. Copy the environment examples only if you need to
-change them:
+Ingestion and retrieval work with no configuration. Copy the environment examples to
+enable answers or change defaults:
 
 ```bash
 cp services/api/.env.example services/api/.env
@@ -205,7 +226,8 @@ cp apps/web/.env.example     apps/web/.env.local
 
 ## Configuration
 
-Backend (`services/api/.env`, all optional):
+Backend (`services/api/.env`; generation values are optional for startup but required
+together for answers):
 
 | Variable                   | Default                 | Purpose                                                              |
 | -------------------------- | ----------------------- | -------------------------------------------------------------------- |
@@ -214,6 +236,11 @@ Backend (`services/api/.env`, all optional):
 | `AKP_MAX_PDF_PAGES`        | `250`                   | Maximum page count accepted for one extraction. Must be positive.     |
 | `AKP_CHUNK_SIZE_CHARS`      | `1000`                  | Maximum characters in a page-bounded retrieval chunk.                 |
 | `AKP_CHUNK_OVERLAP_CHARS`   | `150`                   | Character overlap between adjacent chunks; must be smaller than chunk size. |
+| `AKP_OPENAI_API_KEY`        | unset                   | Server-only OpenAI credential. Never exposed to the browser.                |
+| `AKP_OPENAI_MODEL`          | unset                   | Model or snapshot selected through answer evaluation.                       |
+| `AKP_ANSWER_EVIDENCE_LIMIT` | `5`                     | Maximum retrieved chunks sent to generation; between 1 and 10.              |
+| `AKP_ANSWER_MAX_OUTPUT_TOKENS` | `800`                | Maximum structured generation output; between 1 and 4000.                   |
+| `AKP_ANSWER_TIMEOUT_SECONDS` | `30`                   | Total provider timeout; greater than 0 and at most 120 seconds.              |
 | `AKP_CORS_ALLOW_ORIGINS`   | `http://localhost:3000` | Comma-separated list of browser origins allowed to call the API.      |
 
 Frontend (`apps/web/.env.local`, optional):
@@ -222,7 +249,14 @@ Frontend (`apps/web/.env.local`, optional):
 | -------------------------- | ----------------------- | -------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | API origin used by the browser. Must keep the `NEXT_PUBLIC_` prefix.  |
 
-No secrets are required to run this project, and none are stored in it.
+No secrets are required for ingestion or retrieval, and none are stored in the
+repository. `/answers` returns `503 generation_not_configured` until both OpenAI
+settings exist.
+
+Generation is not offline: the question and up to five retrieved passages are sent to
+OpenAI. The complete PDF and local paths are not sent. Requests use `store=false`, but
+that is not a guarantee of zero retention; review the data controls of the OpenAI
+project before using sensitive documents.
 
 ## Verification
 
@@ -234,12 +268,19 @@ cd services/api && uv run ruff format --check . # formatting
 cd services/api && uv run mypy                  # strict type checking
 cd services/api && uv run pytest                # tests
 cd services/api && uv run python -m ai_knowledge_platform.retrieval.evaluation
+cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
 
 cd apps/web && npm run lint       # Biome lint and format check
 cd apps/web && npm run typecheck  # tsc --noEmit
 cd apps/web && npm run test       # Vitest + Testing Library
 cd apps/web && npm run build      # production build
 cd apps/web && npm audit          # dependency audit
+```
+
+With `AKP_OPENAI_API_KEY` and `AKP_OPENAI_MODEL` configured:
+
+```bash
+make eval-answers  # live, paid answer-quality evaluation
 ```
 
 The backend suite covers the health endpoint, a successful upload, rejection by
@@ -266,12 +307,16 @@ shape-checks every payload before rendering it.
 | 1         | Repository foundation, validated PDF upload, honest ingestion states          | Done        |
 | 2         | PDF text extraction with page-level provenance                                | Done        |
 | 3         | Chunking and retrieval, with evaluation before any generation                 | Done        |
-| 4         | Grounded answers with verifiable citations                                    | Next        |
+| 4         | Grounded answers with verifiable citations                                    | Implemented; live acceptance pending |
 | 5         | Latency, token, cost and failure observability; feedback capture              | Planned     |
 
 Milestone 4 will generate only from retrieved evidence, attach document/page citations
 that resolve to the returned chunks, refuse unsupported answers and evaluate
 faithfulness separately from retrieval quality.
+
+The detailed [milestone 4 implementation plan](docs/plans/milestone-04-grounded-answers.md)
+defines the proposed contracts, architecture, clean-code boundaries, provider strategy,
+security model, evaluation gates, delivery phases and definition of done.
 
 ## Decision records
 
@@ -279,9 +324,11 @@ faithfulness separately from retrieval quality.
 - [ADR 2 — The status vocabulary only names states that exist](docs/adr/0002-document-status-vocabulary.md)
 - [ADR 3 — Keep page extraction in atomic sidecars for one more milestone](docs/adr/0003-page-extraction-sidecars.md)
 - [ADR 4 — SQLite FTS5 for local lexical retrieval](docs/adr/0004-sqlite-fts5-for-local-retrieval.md)
+- [ADR 5 — Structured grounded-answer pipeline](docs/adr/0005-structured-grounded-answer-pipeline.md)
 
 ## Project status
 
 This is an active portfolio project, built in public in small vertical slices. It is
-not a product and is not deployed anywhere. Milestone 3 is complete and verified
-locally; everything described under "Not implemented yet" is genuinely absent.
+not a product and is not deployed anywhere. Milestone 4 is implemented and verified
+locally without provider credentials; model selection, live answer metrics and a live
+answered browser flow remain acceptance gates rather than implied successes.

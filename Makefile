@@ -28,10 +28,15 @@ check-api: ## Lint, format-check, type-check and test the API
 	cd $(API_DIR) && uv run mypy
 	cd $(API_DIR) && uv run pytest
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
 
 .PHONY: eval-retrieval
 eval-retrieval: ## Run the fixed retrieval evaluation and enforce its thresholds
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
+
+.PHONY: eval-answers
+eval-answers: ## Run the live grounded-answer evaluation (requires OpenAI configuration)
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.answers.evaluation
 
 .PHONY: check-web
 check-web: ## Lint, type-check, test, build and audit the web app

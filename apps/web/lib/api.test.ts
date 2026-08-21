@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractDocument, indexDocument, searchEvidence, uploadDocument } from "@/lib/api";
+import {
+  answerQuestion,
+  documentSourceUrl,
+  extractDocument,
+  indexDocument,
+  searchEvidence,
+  uploadDocument,
+} from "@/lib/api";
 
 const STORED_RESPONSE = {
   id: "3f6b1c2e-0f5a-4d21-9f4b-1c0f4a2b7d88",
@@ -49,6 +56,25 @@ const SEARCH_RESPONSE = {
       text: "Policy alpha",
       start_offset: 10,
       end_offset: 22,
+    },
+  ],
+};
+
+const ANSWER_RESPONSE = {
+  question: "Where are leave requests submitted?",
+  outcome: "answered",
+  claims: [{ text: "They are submitted in the people portal.", citation_ids: ["C1"] }],
+  citations: [
+    {
+      id: "C1",
+      document_id: STORED_RESPONSE.id,
+      filename: "handbook.pdf",
+      page_number: 2,
+      chunk_index: 0,
+      start_offset: 0,
+      end_offset: 12,
+      excerpt: "Policy alpha",
+      source_path: `/documents/${STORED_RESPONSE.id}/content`,
     },
   ],
 };
@@ -304,5 +330,131 @@ describe("searchEvidence", () => {
       ok: false,
       error: { code: "search_query_empty", message: "Use a letter or number." },
     });
+  });
+});
+
+describe("answerQuestion", () => {
+  it("posts the question and maps claims with server-resolved citations", async () => {
+    const fetchMock = mockFetch(ANSWER_RESPONSE, 200);
+
+    const result = await answerQuestion("Where are leave requests submitted?");
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        question: ANSWER_RESPONSE.question,
+        outcome: "answered",
+        claims: [
+          {
+            text: "They are submitted in the people portal.",
+            citationIds: ["C1"],
+          },
+        ],
+        citations: [
+          {
+            id: "C1",
+            documentId: STORED_RESPONSE.id,
+            filename: "handbook.pdf",
+            pageNumber: 2,
+            chunkIndex: 0,
+            startOffset: 0,
+            endOffset: 12,
+            excerpt: "Policy alpha",
+            sourcePath: `/documents/${STORED_RESPONSE.id}/content`,
+          },
+        ],
+      },
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      question: "Where are leave requests submitted?",
+    });
+  });
+
+  it("accepts an explicit insufficient-evidence outcome", async () => {
+    mockFetch(
+      {
+        question: "Unknown policy?",
+        outcome: "insufficient_evidence",
+        claims: [],
+        citations: [],
+      },
+      200,
+    );
+
+    const result = await answerQuestion("Unknown policy?");
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        question: "Unknown policy?",
+        outcome: "insufficient_evidence",
+        claims: [],
+        citations: [],
+      },
+    });
+  });
+
+  it("rejects unknown, dangling and unused citations", async () => {
+    mockFetch(
+      {
+        ...ANSWER_RESPONSE,
+        claims: [{ ...ANSWER_RESPONSE.claims[0], citation_ids: ["C9"] }],
+      },
+      200,
+    );
+    expect((await answerQuestion("Question?")).ok).toBe(false);
+
+    mockFetch(
+      {
+        ...ANSWER_RESPONSE,
+        citations: [...ANSWER_RESPONSE.citations, { ...ANSWER_RESPONSE.citations[0], id: "C2" }],
+      },
+      200,
+    );
+    expect((await answerQuestion("Question?")).ok).toBe(false);
+  });
+
+  it("rejects source paths or excerpts that do not match trusted metadata", async () => {
+    mockFetch(
+      {
+        ...ANSWER_RESPONSE,
+        citations: [
+          {
+            ...ANSWER_RESPONSE.citations[0],
+            source_path: "https://attacker.example/source",
+          },
+        ],
+      },
+      200,
+    );
+    expect((await answerQuestion("Question?")).ok).toBe(false);
+
+    mockFetch(
+      {
+        ...ANSWER_RESPONSE,
+        citations: [{ ...ANSWER_RESPONSE.citations[0], excerpt: "wrong" }],
+      },
+      200,
+    );
+    expect((await answerQuestion("Question?")).ok).toBe(false);
+  });
+
+  it("builds a page-addressed local PDF URL", () => {
+    const citation = {
+      id: "C1",
+      documentId: STORED_RESPONSE.id,
+      filename: "handbook.pdf",
+      pageNumber: 2,
+      chunkIndex: 0,
+      startOffset: 0,
+      endOffset: 12,
+      excerpt: "Policy alpha",
+      sourcePath: `/documents/${STORED_RESPONSE.id}/content`,
+    };
+
+    expect(documentSourceUrl(citation)).toMatch(
+      new RegExp(`/documents/${STORED_RESPONSE.id}/content#page=2$`),
+    );
   });
 });

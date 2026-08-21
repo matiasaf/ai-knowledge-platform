@@ -27,7 +27,14 @@ queryable.
 
 Milestone 3 adds `indexing`, `indexed` and `indexing_failed`. `indexed` means page-
 bounded chunks are committed to the local retrieval database and can be searched. It
-still does not mean the system can formulate or validate an answer.
+does not by itself mean the system can formulate or validate an answer.
+
+Milestone 4 deliberately keeps `indexed` as the terminal document state. Answer
+availability is a runtime capability combining an indexed corpus with provider
+configuration and availability; it is not durable work performed on one document.
+Adding `ready` would become false whenever a key expires or a provider is unavailable
+without any transition in the document itself. `POST /answers` therefore reports
+configuration and provider failures independently.
 
 The UI mirrors those boundaries: browser upload progress is distinct from server-side
 page extraction and indexing, while either failure still shows the work that completed
@@ -41,5 +48,5 @@ before it.
   process treats that as interrupted work and permits an explicit retry.
 - Screenshots still show less than a finished product mockup. That is the point: what
   is on screen is what runs.
-- `ready` will be introduced only when the document can satisfy the operation that the
-  word promises.
+- `ready` remains reserved for a future durable state with a precise invariant. It is
+  not an alias for “indexed while an external service happens to be reachable.”

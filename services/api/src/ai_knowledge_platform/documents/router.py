@@ -4,12 +4,17 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import FileResponse
 
 from ai_knowledge_platform.config import Settings, get_settings
-from ai_knowledge_platform.documents.domain import PDF_CONTENT_TYPE
+from ai_knowledge_platform.documents.domain import PDF_CONTENT_TYPE, PDF_SIGNATURE
 from ai_knowledge_platform.documents.extraction import extract_stored_document
 from ai_knowledge_platform.documents.schemas import DocumentExtractionResponse, DocumentResponse
-from ai_knowledge_platform.documents.storage import store_document
+from ai_knowledge_platform.documents.storage import (
+    document_content_path,
+    load_document,
+    store_document,
+)
 from ai_knowledge_platform.errors import ApiError, ErrorCode, ErrorResponse
 
 router = APIRouter(tags=["documents"])
@@ -79,6 +84,38 @@ async def extract_document_text(
         max_pages=settings.max_pdf_pages,
     )
     return DocumentExtractionResponse.from_domain(document, extraction)
+
+
+@router.get(
+    "/documents/{document_id}/content",
+    summary="Open the original PDF for citation verification",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponse},
+    },
+)
+async def get_document_content(document_id: UUID, settings: SettingsDep) -> FileResponse:
+    document = load_document(settings.documents_dir, document_id)
+    content_path = document_content_path(settings.documents_dir, document_id)
+    if not content_path.is_file():
+        raise ApiError(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code=ErrorCode.INTERNAL_ERROR,
+            message=f"Stored PDF for document {document_id} is missing.",
+        )
+    with content_path.open("rb") as source:
+        if not source.read(len(PDF_SIGNATURE)).startswith(PDF_SIGNATURE):
+            raise ApiError(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                code=ErrorCode.INTERNAL_ERROR,
+                message=f"Stored PDF for document {document_id} is invalid.",
+            )
+    return FileResponse(
+        content_path,
+        media_type=document.content_type,
+        filename=document.filename,
+        content_disposition_type="inline",
+    )
 
 
 def _base_media_type(content_type: str | None) -> str:

@@ -1,4 +1,5 @@
 import { EvidenceSearch } from "./evidence-search";
+import { GroundedAnswer } from "./grounded-answer";
 import styles from "./page.module.css";
 import { UploadDocumentForm } from "./upload-document-form";
 
@@ -8,6 +9,7 @@ const IMPLEMENTED = [
   "Each accepted file stored under a generated identifier with a metadata sidecar",
   "Bounded text extraction that keeps one-based page provenance and records empty pages",
   "Page-bounded chunks indexed locally and returned as ranked, attributable evidence",
+  "Grounded answers whose claims resolve to retrieved document and page citations",
   "A versioned retrieval evaluation with enforced Recall@3 and MRR@3 thresholds",
   "Structured API errors with stable codes that this UI renders as real states",
 ];
@@ -15,8 +17,7 @@ const IMPLEMENTED = [
 const NOT_IMPLEMENTED = [
   "OCR for scanned pages without a text layer",
   "Embeddings and semantic or hybrid retrieval",
-  "Answers with verifiable citations",
-  "Answer faithfulness evaluations",
+  "Persistent conversation history",
   "Latency, token, cost and failure observability",
 ];
 
@@ -34,6 +35,8 @@ export default function Home() {
       </header>
 
       <UploadDocumentForm />
+
+      <GroundedAnswer />
 
       <EvidenceSearch />
 
