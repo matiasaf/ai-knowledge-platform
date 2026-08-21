@@ -1,7 +1,7 @@
 # Plan de implementación del hito 4: respuestas fundamentadas con citas verificables
 
-- Estado: propuesto, listo para implementación
-- Fecha: 2026-08-13
+- Estado: implementado; aceptación en vivo pendiente por credenciales del proveedor
+- Fecha: 2026-08-13; estado actualizado 2026-08-21
 - Hito objetivo: 4
 - Dependencia funcional: hito 3 completo
 - Alcance del documento: backend, frontend, proveedor de generación, seguridad,

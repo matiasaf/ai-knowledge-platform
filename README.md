@@ -179,6 +179,9 @@ vector store.
 ├── docs/adr/                  architecture decision records
 ├── docs/plans/                detailed designs for the next implementation slice
 ├── docs/progress/             what each milestone actually delivered
+├── AGENTS.md                  concise agent entry point and verification contract
+├── PROGRESS.md                resumable current state, blocker and next action
+├── .python-version/.nvmrc     preferred local runtime families
 ├── .github/workflows/ci.yml   separate backend and frontend jobs
 └── Makefile                   the same gates CI runs
 ```
@@ -194,6 +197,7 @@ vector store.
 Clone the repository, then from the repository root:
 
 ```bash
+make doctor      # display the resolved Python, uv, Node.js and npm versions
 make install     # uv sync in services/api, npm ci in apps/web
 ```
 
@@ -274,7 +278,7 @@ cd apps/web && npm run lint       # Biome lint and format check
 cd apps/web && npm run typecheck  # tsc --noEmit
 cd apps/web && npm run test       # Vitest + Testing Library
 cd apps/web && npm run build      # production build
-cd apps/web && npm audit          # dependency audit
+cd apps/web && npm audit --audit-level=high # dependency audit
 ```
 
 With `AKP_OPENAI_API_KEY` and `AKP_OPENAI_MODEL` configured:
@@ -310,13 +314,14 @@ shape-checks every payload before rendering it.
 | 4         | Grounded answers with verifiable citations                                    | Implemented; live acceptance pending |
 | 5         | Latency, token, cost and failure observability; feedback capture              | Planned     |
 
-Milestone 4 will generate only from retrieved evidence, attach document/page citations
-that resolve to the returned chunks, refuse unsupported answers and evaluate
-faithfulness separately from retrieval quality.
+Milestone 4 generates only from retrieved evidence, attaches document/page citations
+that resolve to the returned chunks, refuses unsupported answers and evaluates
+faithfulness separately from retrieval quality. Live provider acceptance remains
+pending as recorded in `PROGRESS.md`.
 
 The detailed [milestone 4 implementation plan](docs/plans/milestone-04-grounded-answers.md)
-defines the proposed contracts, architecture, clean-code boundaries, provider strategy,
-security model, evaluation gates, delivery phases and definition of done.
+records its contracts, architecture, clean-code boundaries, provider strategy, security
+model, evaluation gates, delivery phases and definition of done.
 
 ## Decision records
 

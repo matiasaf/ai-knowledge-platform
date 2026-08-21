@@ -8,9 +8,18 @@ help: ## Show the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: doctor
+doctor: ## Show required and active toolchain versions without changing the environment
+	@echo "Python target: $$(cat .python-version) (project supports 3.12+)"
+	@echo "Node.js target: $$(cat .nvmrc)"
+	uv --version
+	python3 --version
+	node --version
+	npm --version
+
 .PHONY: install
 install: ## Install backend and frontend dependencies from the lockfiles
-	cd $(API_DIR) && uv sync
+	cd $(API_DIR) && uv sync --frozen
 	cd $(WEB_DIR) && npm ci
 
 .PHONY: api

@@ -45,6 +45,9 @@ jobs:
       - name: Evaluate retrieval
         run: uv run python -m ai_knowledge_platform.retrieval.evaluation
 
+      - name: Validate answer evaluation dataset
+        run: uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
+
   web:
     name: Web (Next.js)
     runs-on: ubuntu-latest
