@@ -22,6 +22,7 @@ changes; do not rewrite an accepted decision as if it had never existed.
 
 ## Plans and delivery history
 
+- `plans/roadmap.md`: 24-week milestone sequence, deliverables and required evidence.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.

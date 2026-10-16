@@ -32,8 +32,10 @@ Configure provider credentials outside the repository, compare candidate models 
 `make eval-answers`, record the selected model and metrics, then exercise one real
 answered browser flow before marking milestone 4 accepted.
 
-After acceptance, plan milestone 5: latency, token, cost and failure observability plus
-feedback capture.
+After acceptance, follow `docs/plans/roadmap.md` (currently week 1 of 24): the next
+slice is `retrieval_v2`, a larger retrieval dataset that replaces the saturated
+baseline before any embedding work. Milestone 5 (observability and feedback) moves to
+weeks 9–12.
 
 ## Resume checklist
 
