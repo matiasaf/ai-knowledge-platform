@@ -36,3 +36,7 @@ data/
 .vscode/
 *.swp
 .claude/settings.local.json
+
+# Playwright output
+apps/web/test-results/
+apps/web/playwright-report/

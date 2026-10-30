@@ -55,6 +55,11 @@ check-web: ## Lint, type-check, test, build and audit the web app
 	cd $(WEB_DIR) && npm run build
 	cd $(WEB_DIR) && npm audit --audit-level=high
 
+.PHONY: e2e
+e2e: ## Run browser E2E tests against a fresh local API and web app (no secrets needed)
+	cd $(WEB_DIR) && npx playwright install chromium
+	cd $(WEB_DIR) && npm run e2e
+
 .PHONY: check
 check: check-api check-web ## Run every quality gate that CI runs
 

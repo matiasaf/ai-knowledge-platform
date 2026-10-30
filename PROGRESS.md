@@ -17,6 +17,16 @@ This is the resumable state for active work. Detailed completed-slice records li
 - The repository harness now has a root agent map, resumable state, a documentation
   index, declared runtime families and matching local/CI offline evaluation gates.
 
+- Browser E2E suite (Playwright 1.64.1) in `apps/web/e2e/core-flows.spec.ts`, run with
+  `make e2e` and by the CI `e2e` job (traces uploaded on failure). Three provider-free
+  flows: upload → extract → index → search with page provenance plus an explicit
+  retrieval miss, non-PDF rejection, and the explicit `generation_not_configured`
+  failure. It starts its own API (port 8100) and web app (port 3100) on a temporary
+  data dir.
+- Finding: `AKP_CORS_ALLOW_ORIGINS` given as a comma-separated env var crashes API
+  startup (pydantic-settings parses list fields as JSON before the validator runs); the
+  E2E config passes JSON. README documents the comma form; not fixed yet.
+
 ## In progress
 
 - Milestone 4 live acceptance.
