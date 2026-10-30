@@ -1,10 +1,14 @@
 # 24-week roadmap
 
-- Status: proposed
+- Status: deferred long-term proposal; November execution follows `../../ROADMAP.md`
 - Date: 2026-10-16
 - Starting point: milestone 4 implemented; live acceptance pending
 - Document scope: milestone sequence, deliverables, required evidence and the order of
   architectural decisions. It does not replace per-milestone plans or ADRs.
+
+> The active 9–22 November production plan is [ROADMAP.md](../../ROADMAP.md).
+> Its [first steps](production-first-steps.md) adapt the plan to the current stack.
+> The 24-week sequence below is retained for reference, not as a parallel schedule.
 
 ## 1. Expected outcome
 

@@ -1,6 +1,6 @@
 # Current project progress
 
-Last updated: 2026-08-21
+Last updated: 2026-10-30
 
 This is the resumable state for active work. Detailed completed-slice records live in
 `docs/progress/`; plans and architectural rationale live in `docs/plans/` and
@@ -19,7 +19,18 @@ This is the resumable state for active work. Detailed completed-slice records li
 
 ## In progress
 
-- Milestone 4 live acceptance.
+Production preparation (`ROADMAP.md`, execution window 9–22 November):
+
+- Done: `docs/architecture/ingestion-flow.md` and `docs/architecture/backend-boundaries.md`
+  with sequence and state diagrams. The backend import rules are now enforced by
+  `services/api/tests/test_architecture_boundaries.py`.
+- Pending: milestone 4 live acceptance (blocked, see below).
+- Added the supplied production roadmap in `ROADMAP.md`, preserving the original
+  plan with an explicit integration note. The former 24-week proposal is deferred.
+- Completed the technical diagnosis and ordered the initial tasks in
+  `docs/plans/production-first-steps.md`; dataset v2, judge calibration, tracing
+  decisions and deployment remain pending. Corpus provenance and history review
+  are not certified by this preparation.
 
 ## Blocked
 
@@ -28,14 +39,17 @@ This is the resumable state for active work. Detailed completed-slice records li
 
 ## Next action
 
-Configure provider credentials outside the repository, compare candidate models with
-`make eval-answers`, record the selected model and metrics, then exercise one real
-answered browser flow before marking milestone 4 accepted.
+Confirm a publishable corpus and record the history/provenance review, then define
+and validate the v2 dataset/report contract using the existing Python harness.
+Draft the first 20 questions and grow to 30–40 with at least five unanswerable cases
+before comparing retrieval changes. See `docs/plans/production-first-steps.md`.
 
-After acceptance, follow `docs/plans/roadmap.md` (currently week 1 of 24): the next
-slice is `retrieval_v2`, a larger retrieval dataset that replaces the saturated
-baseline before any embedding work. Milestone 5 (observability and feedback) moves to
-weeks 9–12.
+In parallel with offline preparation, the project owner can configure provider
+credentials outside the repository and a live-evaluation budget. Then compare models
+with `make eval-answers`, record model/snapshot and metrics, and exercise a real
+answered browser flow. Live acceptance remains required before claiming milestone 4
+accepted or the combined evaluation delivered. The 12 November checkpoint cuts deploy
+scope if evaluation is incomplete; the hard cutoff is 22 November.
 
 ## Resume checklist
 
@@ -45,7 +59,26 @@ weeks 9–12.
 - Run `make check` before claiming full local verification.
 - Update this file when the active state, blocker, next action or evidence changes.
 
-## Latest harness verification
+## Latest verification
+
+On 2026-10-30, documentation-only roadmap integration:
+
+- `make doctor` passed: shell Python 3.13.14, Node 24.22.1; declared runtime targets
+  remain Python 3.12 and Node 22.
+- `make eval-retrieval` passed: 4 cases, Recall@3 = 1.0, MRR@3 = 1.0. This is the
+  existing saturated baseline, not a new quality improvement.
+- `cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only`
+  passed: 2 documents, 13 cases. No live provider calls or judge calibration ran.
+- `git diff --check` passed. `make check` was not rerun: this slice changes only
+  documentation. Prior architecture changes in the working tree were preserved.
+
+## Previous API verification
+
+On 2026-10-16, `make check-api` passed: Ruff, formatting, strict mypy (42 files), 58
+tests including the new architecture boundary tests, retrieval thresholds and
+validation of 13 answer cases. Web checks were not rerun because no web code changed.
+
+## Previous harness verification
 
 On 2026-08-21, `make check-api` passed (Ruff, formatting, strict mypy, 49 tests,
 retrieval thresholds and validation of 13 answer cases). Web lint, type-check, 40 tests

@@ -8,6 +8,14 @@ Use this page to load only the context needed for a task.
 - Agent operating guide and hard constraints: `../AGENTS.md`
 - Current resumable state: `../PROGRESS.md`
 
+## Architecture
+
+- `architecture/ingestion-flow.md`: upload, extraction and indexing sequence, **status**
+  transitions, guarantees and known gaps.
+- `architecture/backend-boundaries.md`: API layers, allowed imports, async/thread
+  usage and error mapping. Import rules are checked by
+  `services/api/tests/test_architecture_boundaries.py`.
+
 ## Architecture decisions
 
 - `adr/0001-local-file-storage-for-the-first-ingestion-slice.md`
@@ -22,7 +30,10 @@ changes; do not rewrite an accepted decision as if it had never existed.
 
 ## Plans and delivery history
 
-- `plans/roadmap.md`: 24-week milestone sequence, deliverables and required evidence.
+- `../ROADMAP.md`: active production roadmap, 9–22 November 2026, eight sessions.
+- `plans/production-first-steps.md`: current-stack diagnosis, adaptations, ordered
+  initial tasks, dependencies and acceptance criteria.
+- `plans/roadmap.md`: deferred 24-week proposal, retained as long-term reference.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.
