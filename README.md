@@ -306,12 +306,11 @@ shape-checks every payload before rendering it.
 
 ## Roadmap
 
-The active [production roadmap](ROADMAP.md) covers 9–22 November 2026: evaluation,
-observability, a protected VPS demo and documented decisions, in that priority order.
-The [first steps](docs/plans/production-first-steps.md) record the current baseline
-and an ordered task list. The earlier [24-week proposal](docs/plans/roadmap.md) is
-deferred; this plan retains SQLite/FTS5 and the Python evaluators. Planned work below
-is not a claim of delivery.
+The single [study and implementation plan](ROADMAP.md) connects learning topics,
+implementation tasks, dependencies and acceptance evidence. It includes the active
+9–22 November 2026 schedule and the deferred long-term backlog. The current cut
+retains SQLite/FTS5 and the Python evaluators. Planned work below is not a claim of
+delivery.
 
 | Milestone | Scope                                                                        | State       |
 | --------- | ---------------------------------------------------------------------------- | ----------- |

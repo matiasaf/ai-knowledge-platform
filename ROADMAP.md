@@ -1,455 +1,230 @@
-# ai-knowledge-platform — Production roadmap
+# Study and implementation plan
 
-## Integration with this repository · 2026-10-30
+Updated: 2026-10-30.
 
-**Active plan for November 9–22, 2026.** The contributed roadmap is kept below, with
-its eight sessions and its 16 h budget. Preparation starts now; the sessions are not
-yet considered done.
+This file is the single source for the project's next steps: what to study, what to
+build, in what order, and what evidence marks each item as done. It combines the
+production plan, its adaptations to this repository, and the long-term learning
+proposal.
 
-The [first-steps plan](docs/plans/production-first-steps.md) adapts names,
-dependencies and acceptance criteria to the existing code. Its adjustments take
-precedence over the stack, command and file examples in the original text:
+Active work targets **9–22 November 2026**, with eight two-hour sessions (16 h). The
+budget is a scope constraint, not a guarantee that every deliverable will be
+completed. Preparation can start before the 9th.
 
-- FastAPI + SQLite FTS5/BM25 remain the foundation (ADR 4). No migration to
-  PostgreSQL/pgvector or embeddings is scheduled to meet this cut.
-- The Python evaluators and datasets in `services/api/evals/` are extended.
-  `make` remains the canonical entry point; `npm run eval` is the name proposed in
-  the original, not a command available today. The unified command is still pending.
-- There is no streaming: TTFT is recorded as not applicable. Total and per-stage
-  latency are measured; streaming is not added just to produce that metric.
-- Five ADRs already exist. New decisions continue from `0006` without overwriting
-  them; the tracing choice still requires a decision.
-- Deployment uses the current storage and includes PDFs and sidecars in its
-  backups. Access, limits and spend protection are verified **before** exposing
-  generation or uploads to the public.
-- The [24-week roadmap](docs/plans/roadmap.md) remains a deferred long-term
-  proposal. It is not a second active schedule.
+[PROGRESS.md](PROGRESS.md) holds the resumable state, blockers and verification
+results. Tasks and their sequence are maintained here; ADRs and milestone technical
+plans keep their contracts and decisions.
 
-Resumable state and verification evidence live in [PROGRESS.md](PROGRESS.md).
-The original's open questions remain pending; incorporating it does not certify
-corpus provenance, history, a deploy or acceptance with a real model.
+## Starting point
 
----
-
- 
-> **From "a demo that works" to "a system that is measured".**
-> Period: November 9 to 22, 2026 · 8 sessions of 2 h (16 h total) · hard cut on 11/22.
- 
-When finished, the repo must have:
- 
-- **Reproducible evaluation**: `npm run eval` measures retrieval and answers over a fixed dataset.
-- **Observability**: every request leaves a trace with per-stage latency, tokens and cost.
-- **Live demo**: deployed on the VPS with HTTPS, login or demo mode, rate limit and a daily spend cap.
-- **Decision documentation**: README as a case study and 3 ADRs.
----
- 
-## Contents
- 
-1. [Project rules](#project-rules)
-2. [Target architecture](#target-architecture)
-3. [Deliverables map](#deliverables-map)
-4. [Schedule](#schedule)
-5. [Day-by-day plan](#day-by-day-plan)
-6. [Out of scope](#out-of-scope)
-7. [Questions this project must be able to answer](#questions-this-project-must-be-able-to-answer)
-8. [Open questions](#open-questions)
----
- 
-## Project rules
- 
-1. **The order of deliverables is the order of priority.** If time runs out, the bottom items are dropped, never evaluation.
-2. **Hard cut on November 22.** Whatever is not done moves to "Next steps" in the README.
-3. **Every improvement is measured before and after.** An improvement without a number does not count.
-4. **No new frameworks just to learn them.** Use what the repo already has, unless a tool saves hours.
-5. **Confidentiality.** No code, prompts or documents from an employer enter the repo. If the repo grew out of that work, review the commit history before making it public.
-6. **Cut rule:** if evaluation does not run end to end by the end of week 1, week 2 cuts Deliverable 3, not 1.
----
- 
-## Target architecture
- 
-```
-                ┌──────────────┐
-  User ──────▶  │    Access    │  login / demo mode · rate limit · daily cap
-                └──────┬───────┘
-                       ▼
-            ┌─────────────────────────────────────────────┐
-            │                 RAG pipeline                │
-            │  embed query → retrieve → (rerank) → LLM    │
-            └──────┬───────────────────────────┬──────────┘
-                   │                           │
-                   ▼                           ▼
-           ┌──────────────┐            ┌──────────────┐
-           │  Postgres +  │            │    Traces    │  request_id · spans · tokens · cost
-           │  pgvector    │            │              │
-           └──────────────┘            └──────┬───────┘
-                                              ▼
-                                      ┌──────────────┐
-                                      │   Metrics    │  p50/p95 · TTFT · cost/query · 24 h cost
-                                      └──────┬───────┘
-                                             │ daily cost
-                                             └──────────▶ triggers the cap in Access
- 
-  npm run eval ──▶ calls the SAME pipeline ──▶ eval/results/<date>.json + summary.md
-```
- 
-- The eval uses the same pipeline as the demo: **what is measured is what runs in production**.
-- Traces feed the metrics, and the daily cost triggers the cap in Access.
-- Adjust the box names to the real stack after session 1.
----
- 
-## Deliverables map
- 
-| # | Deliverable | Hours | Priority | Done when |
-|---|---|---|---|---|
-| 1 | Evaluation | 6 h | Highest | `npm run eval` runs end to end, writes `eval/results/<date>.json` and a Markdown summary, and the README shows the experiment table. |
-| 2 | Observability, cost and latency | 4 h | High | You can say "p95 of X s, TTFT of Y ms, Z cents per query, and with [change] it dropped to W without losing quality according to the eval". |
-| 3 | Deploy, authentication and cost protection | 3 h | Medium | There is a working HTTPS link and no way for the demo to spend more than the daily cap. |
-| 4 | README as case study and ADRs | 3 h | Medium | Someone who has never seen the repo understands in one minute what it does, how it is measured and what was decided. |
- 
-### File structure added
- 
-```
-eval/
-  dataset.jsonl            # 30–40 questions with expected answer and correct chunks
-  results/<date>.json      # output of each run
-  results/<date>.md        # readable summary
-  calibration.jsonl        # 10 hand-scored answers
-config/
-  pricing.(json|ts)        # per-model prices, not hardcoded
-docs/
-  adr/
-    001-evaluation.md
-    002-experiment.md
-    003-observability-and-costs.md
-docker-compose.yml
-Caddyfile
-ROADMAP.md
-README.md
-```
- 
----
- 
-## Schedule
- 
-| # | Day | Work | Session output |
-|---|---|---|---|
-| 1 | Mon 9 | Repo diagnosis · choose tracing approach · first 20 questions | Starting-point table complete |
-| 2 | Tue 10 | Finish dataset · retrieval metrics | Hit rate, recall and MRR computed |
-| 3 | Wed 11 | Answer metrics with a judge · calibration | `npm run eval` end to end |
-| 4 | Thu 12 | Experiment (one variable) · start tracing | Before/after experiment table |
-| 5 | Mon 16 | Finish tracing · metrics view | p50/p95, TTFT and cost per query |
-| 6 | Tue 17 | Measured optimization · Docker Compose + Caddy | Before/after optimization; app on the VPS |
-| 7 | Wed 18 | Login or demo mode · rate limit · daily cap · backups | Public, protected HTTPS link |
-| 8 | Thu 19 | README and 3 ADRs | Repo ready to show |
-| — | 21–22 | Buffer and wrap-up | Everything published |
- 
-**Week 1 checkpoint (Thu 12):** does `npm run eval` run end to end? If not → week 2 cuts Deliverable 3.
- 
----
- 
-## Day-by-day plan
- 
-Each session has: **goal**, **what gets implemented** (checklist), **what gets learned**, **files** and **how to know it is done**.
- 
----
- 
-### Week 1 — Evaluation
- 
----
- 
-### Day 1 · Monday 11/9 — Diagnosis and dataset (part 1)
- 
-**Goal:** know exactly what you have and start the golden dataset.
- 
-**Implemented**
- 
-- [ ] 30-minute diagnosis — complete the starting-point table:
-  | Question | Answer | Why it matters |
-  |---|---|---|
-  | What stack does it use? (Next.js, Node, other) | | Defines where the eval and traces live |
-  | What vector store? (pgvector, other) | | Defines whether the VPS runs a single Postgres or more services |
-  | Which LLM and embeddings provider? | | Defines how per-request cost is computed |
-  | What corpus does it use? Is it public? | | The demo and the eval need publishable documents |
-  | Does it have streaming? | | If so, TTFT is measured |
-  | Does it have auth, tests or CI? | | Whatever already exists is documented instead of built |
-- [ ] Review commit history for confidential material.
-- [ ] Decide the tracing approach and **do not change it afterwards**:
-  - Option A (recommended): a `traces` table in the same Postgres, with custom spans or the OpenTelemetry API.
-  - Option B: self-hosted Langfuse (saves building a UI, but adds a service to operate on the VPS).
-- [ ] Define the format of `eval/dataset.jsonl`.
-- [ ] Write the first 20 questions by hand.
-**Suggested format for each dataset line**
- 
-```json
-{"id": "q001", "type": "factual", "question": "...", "expected_answer": "...", "relevant_ids": ["doc-12#chunk-3"]}
-```
- 
-`type` ∈ `factual` · `multi_doc` · `unanswerable`
- 
-**Learned**
- 
-- How to audit an existing RAG system before modifying it.
-- What a *golden dataset* is and why it must be fixed and versioned.
-- Trade-off between building your own observability vs. adopting a tool.
-**Files:** `eval/dataset.jsonl`, diagnosis notes (can go at the end of this ROADMAP).
- 
-**Done when:** the starting-point table is complete, the tracing approach is chosen and 20 questions are written.
- 
----
- 
-### Day 2 · Tuesday 11/10 — Full dataset and retrieval metrics
- 
-**Goal:** measure how well the system retrieves, without an LLM, cheaply and deterministically.
- 
-**Implemented**
- 
-- [ ] Complete the dataset to 30–40 questions with this mix:
-  - Direct factual questions.
-  - Questions that need 2 documents (`multi_doc`).
-  - **5 questions the corpus cannot answer** (`unanswerable`).
-- [ ] Harness script that, for each question, calls the pipeline's real retriever and stores the returned IDs.
-- [ ] Implement the metrics:
-  | Metric | What it answers |
-  |---|---|
-  | Hit rate @k | Did at least one correct chunk appear in the top-k? |
-  | Recall @k | What proportion of the correct chunks was retrieved? |
-  | MRR | How high did the first correct chunk rank? |
-- [ ] First run, saving the result as the baseline.
-**Learned**
- 
-- The difference between evaluating **retrieval** and evaluating **generation**, and why it pays to separate them.
-- Hit rate vs. recall vs. MRR: what each one captures and when they mislead.
-- Why unanswerable questions are part of the dataset.
-**Files:** `eval/dataset.jsonl`, `eval/retrieval.(ts|js)`, `eval/results/<date>.json`.
- 
-**Done when:** hit rate, recall and MRR are computed over the full dataset and a baseline is saved.
- 
----
- 
-### Day 3 · Wednesday 11/11 — Answer metrics with LLM as judge
- 
-**Goal:** measure answer quality and show that the judge is reliable.
- 
-**Implemented**
- 
-- [ ] Written rubric for the judge (in the repo, versioned).
-- [ ] Metrics:
-  - **Groundedness:** is every claim supported by the retrieved context?
-  - **Correctness:** does it match the expected answer? (1–3 scale)
-  - **Abstention:** on the 5 unanswerable questions, did it say it didn't know?
-- [ ] Calibration: score 10 answers by hand and compute the % agreement with the judge.
-- [ ] An `npm run eval` command that runs retrieval + answers and writes:
-  - `eval/results/<date>.json`
-  - a Markdown summary.
-**Learned**
- 
-- LLM-as-judge: how to write a rubric, typical biases and why it must be calibrated.
-- Groundedness vs. correctness: an answer can be correct and unsupported (or the reverse).
-- How to evaluate abstention ("I don't know") as desired behavior.
-**Files:** `eval/judge.(ts|js)`, `eval/rubric.md`, `eval/calibration.jsonl`, `package.json` (`eval` script).
- 
-**Done when:** `npm run eval` runs end to end and the judge/human agreement % is computed.
- 
----
- 
-### Day 4 · Thursday 11/12 — Experiment and tracing kickoff
- 
-**Goal:** make a technical decision based on numbers.
- 
-**Implemented**
- 
-- [ ] Choose **a single variable** (from simplest to most complex):
-  1. Chunk size.
-  2. top-k.
-  3. Hybrid search (keyword + vector).
-  4. Reranking.
-- [ ] Run the eval before and after, with everything else fixed.
-- [ ] Before/after table: retrieval metrics, answer metrics and cost.
-- [ ] Record the decision made (input for ADR-002).
-- [ ] Start tracing: generate a `request_id` and propagate it through every stage.
-**Learned**
- 
-- Experiment design: one variable, same dataset, fair comparison.
-- Real trade-offs between quality, latency and cost.
-- Context propagation (`request_id`) through a pipeline.
-**Files:** `eval/results/` (two runs), notes for `docs/adr/002-experiment.md`, tracing module.
- 
-**Done when:** the before/after table exists with the decision and its cost.
- 
-**✅ Week 1 checkpoint:** evaluation runs end to end. If not, week 2 cuts Deliverable 3.
- 
----
- 
-### Week 2 — Observability, deploy and documentation
- 
----
- 
-### Day 5 · Monday 11/16 — Complete traces and metrics view
- 
-**Goal:** have the latency and cost numbers that come up in any technical conversation.
- 
-**Implemented**
- 
-- [ ] Per-request trace with these fields:
-  | Field | Detail |
-  |---|---|
-  | `request_id` | Propagated through every stage and logged |
-  | Spans | embed query → retrieve → rerank (if present) → LLM |
-  | Latency | Duration per span, total, and TTFT if there is streaming |
-  | Tokens | LLM input and output, embedding tokens |
-  | Cost | Computed from a per-model price table in config, not hardcoded |
-  | Context | top-k used, chunk IDs and prompt version |
-- [ ] Price table in `config/pricing`.
-- [ ] Metrics view: an `/admin/metrics` page **or** an `npm run stats` script with:
-  - p50/p95 of total latency and TTFT.
-  - Average cost per query.
-  - Cost over the last 24 h.
-**Learned**
- 
-- Spans and traces (OpenTelemetry mental model).
-- Percentiles (p50/p95) vs. average: why the average hides the tail.
-- TTFT and why it matters more than total latency in streaming interfaces.
-- How to compute per-request cost from tokens.
-**Files:** `traces` table migration, tracing module, `config/pricing`, `stats` script or `/admin/metrics` route.
- 
-**Done when:** p50/p95, TTFT and cost per query can be read from real data.
- 
----
- 
-### Day 6 · Tuesday 11/17 — Measured optimization and deploy
- 
-**Goal:** improve a number without losing quality, and have the app running on the VPS.
- 
-**Implemented**
- 
-- [ ] Choose **one** optimization:
-  - Answer cache for repeated questions (hash of the normalized query).
-  - Reduce top-k or context size.
-  - A smaller model for a secondary step (for example, query rewriting).
-- [ ] Measure before/after with traces **and** with the eval (quality must not drop).
-- [ ] `docker-compose.yml` with the app and Postgres (with pgvector if applicable).
-- [ ] Caddy in front for automatic HTTPS with a domain or subdomain.
-- [ ] Environment variables outside the repo (`.env.example` yes, `.env` no).
-**Learned**
- 
-- Optimizing with guardrails: latency/cost measured by traces, quality measured by the eval.
-- Caching strategies in LLM systems and their risks.
-- Docker Compose for a single-node deploy, and a reverse proxy with automatic TLS.
-**Files:** `docker-compose.yml`, `Caddyfile`, `.env.example`, the optimization change.
- 
-**Done when:** there is a before/after optimization table and the app responds on the VPS.
- 
----
- 
-### Day 7 · Wednesday 11/18 — Access, limits and backups
- 
-**Goal:** make sure the public demo cannot spend more than planned.
- 
-**Implemented**
- 
-- [ ] Simple login (GitHub OAuth or magic link with the stack's auth library) **or** an anonymous demo mode with lower limits.
-- [ ] Rate limit per user or IP (for example, 20 queries per hour).
-- [ ] Daily spend cap: if the day's cost (taken from the traces) exceeds the threshold, the API responds "demo paused until tomorrow".
-- [ ] Maximum input size and uploaded file size (if the demo allows uploads).
-- [ ] Daily backup of the Postgres volume (cron with `pg_dump`).
-**Learned**
- 
-- Why a public LLM endpoint is a cost risk, not just a security risk.
-- Rate limiting (fixed vs. sliding window) and where to apply it.
-- Cost circuit breaker using observability as the source of truth.
-- Basic operations: backups and restore.
-**Files:** rate limit and cap middleware, auth configuration, backup script/cron.
- 
-**Done when:** there is a public, protected HTTPS link.
- 
----
- 
-### Day 8 · Thursday 11/19 — README as case study and ADRs
- 
-**Goal:** make the repo explain itself, in 60 seconds or in 10 minutes.
- 
-**Implemented**
- 
-- [ ] README with this structure:
-  1. One line on what it is + link to the demo.
-  2. Architecture diagram (the one in this roadmap, adapted to the real stack).
-  3. Results: eval table, experiment table, p50/p95, TTFT and cost per query.
-  4. Decisions and trade-offs: 3 bullets linking to the ADRs.
-  5. How to run it locally in 3 commands.
-  6. Next steps: what was left out by the cut.
-- [ ] ADRs in `docs/adr/` (half a page each: context, decision, alternatives, consequences):
-  - **ADR-001:** how the system is evaluated (metrics, LLM as judge and its calibration).
-  - **ADR-002:** the experiment decision, with its numbers.
-  - **ADR-003:** how cost is observed and protected (traces, rate limit, daily cap).
-- [ ] Ask someone who has not seen the repo to read it.
-**Learned**
- 
-- Documenting decisions with ADRs.
-- Communicating technical results with numbers, for technical and non-technical readers.
-**Files:** `README.md`, `docs/adr/001-evaluation.md`, `docs/adr/002-experiment.md`, `docs/adr/003-observability-and-costs.md`.
- 
-**Done when:** someone who has never seen the repo understands in one minute what it does, how it is measured and what was decided.
- 
----
- 
-### Saturday 21 and Sunday 22/11 — Buffer and wrap-up
- 
-- [ ] Finish whatever is left from days 1–8 (in priority order).
-- [ ] Move everything that did not make it to the README's "Next steps".
-- [ ] Verify that the demo, the eval and the metrics work from scratch (clone, start, run).
-- [ ] Publish.
----
- 
-## Out of scope
- 
-Not included in these two weeks. Goes to "Next steps" in the README.
- 
-- Agents, LangGraph, MCP or tool calling.
-- Fine-tuning or custom models.
-- Multi-tenancy, roles and fine-grained permissions.
-- UI redesign.
-- Kubernetes, Terraform or infrastructure beyond Docker Compose.
-- Courses or certifications associated with the project.
-- More than one experiment or more than one optimization.
----
- 
-## Questions this project must be able to answer
- 
-By 11/22, each one must have an answer backed by the repo's own numbers.
- 
-| Question | Comes from |
+| Area | Verified / pending state |
 |---|---|
-| How do you evaluate retrieval quality? | Day 2 · hit rate, recall, MRR |
-| How do you know the LLM-as-judge is reliable? | Day 3 · calibration against hand-scored answers |
-| How do you handle questions the corpus can't answer? | Day 3 · abstention metric |
-| Tell me about a change you made and how you measured it. | Day 4 · experiment and ADR-002 |
-| What are your latency and cost per query? How did you reduce them? | Days 5–6 · traces and optimization |
-| How do you debug a bad answer in production? | Day 5 · trace with chunks, prompt version and spans |
-| How do you protect a public LLM endpoint from abuse and runaway cost? | Day 7 · rate limit and daily cap |
-| RAG vs fine-tuning: when would you choose each? | The complete system as an example |
- 
----
- 
-## Open questions
- 
-- [ ] Is the repo public and free of employer code or data?
-- [ ] What public corpus does the demo use? If it has none, choose a small, stable one (for example, the documentation of a well-known open source project).
-- [ ] What domain or subdomain will the demo use on the VPS?
-- [ ] What is the acceptable monthly spend cap for the demo?
-- [ ] Does the repo already have auth, tests or CI? (Answered on Day 1.)
----
- 
-## Progress log
- 
-| Day | Date | Actual hours | Done | Pending / notes |
-|---|---|---|---|---|
-| 1 | 11/09 | | | |
-| 2 | 11/10 | | | |
-| 3 | 11/11 | | | |
-| 4 | 11/12 | | | |
-| 5 | 11/16 | | | |
-| 6 | 11/17 | | | |
-| 7 | 11/18 | | | |
-| 8 | 11/19 | | | |
-| — | 11/21–22 | | | |
-| **Total** | | **/ 16 h** | | |
+| Ingestion | Milestones 1–3 complete: PDF, per-page extraction, chunks with provenance and lexical search |
+| Answers | Milestone 4 implemented; acceptance with a real provider pending |
+| Stack | FastAPI, Python, Pydantic; Next.js 16, React 19, TypeScript |
+| Storage | PDFs and sidecars as the source of truth; SQLite FTS5/BM25 as a rebuildable index |
+| Retrieval evaluation | `retrieval_v1`: 2 documents, 4 queries, Recall@3 = MRR@3 = 1.0; saturated baseline |
+| Answer evaluation | `answers_v1`: 13 valid cases; no new live metrics and no calibrated judge |
+| Architecture | Ingestion and backend-boundary diagrams documented; imports verified by tests |
+| Operations | No streaming, auth, rate limit, spend cap, tracing or deployment |
+| Public corpus | The current fixtures do not establish provenance or permission for a publishable corpus |
+
+Prior evidence from 30 October: `make doctor`, `make eval-retrieval` and offline
+validation of `answers_v1` passed. This does not establish live acceptance or a
+retrieval improvement. Commands and their limits are recorded in `PROGRESS.md`.
+
+## Order and working rules
+
+1. Prioritize reproducible evaluation, then observability, a protected demo and
+   documentation of results. If time runs short, cut deployment before evaluation.
+2. Study each topic while executing its task and close it with your own evidence: a
+   test, an explanation of the flow, a measurement or a documented decision.
+3. Keep FastAPI, SQLite/FTS5 and the existing Python evaluators. Do not add
+   frameworks, embeddings, Postgres or infrastructure to complete this cut.
+4. Compare a single variable per experiment and a single optimization, with the
+   dataset and all other configuration fixed. An improvement requires before/after
+   measurements.
+5. Keep offline results separate from live acceptance. `make check` does not call
+   the provider.
+6. Review the corpus and history before publishing. Never include employer
+   material, secrets or documents without permission.
+7. Record new decisions starting at ADR `0006`; do not replace the existing five.
+8. Before exposing generation or uploads, verify access, limits and spend
+   protection. A service running on a VPS is not an accepted public demo.
+
+## Next action and dependencies
+
+- [ ] Confirm a publishable corpus and record its origin, license/permissions and the
+  history review. Inspecting the current files does not replace reviewing commits.
+- [ ] Define and validate the v2 dataset and report contract with the existing Python
+  harness. This can move forward offline with fixtures while the corpus is confirmed.
+- [ ] Write the first 20 questions against the reviewed sources; grow to 30–40, with
+  at least five unanswerable and genuinely multi-document cases.
+- [ ] Configure `AKP_OPENAI_API_KEY`, `AKP_OPENAI_MODEL` and a budget outside the
+  repository to compare models and evaluate answers/judge.
+
+Credentials block live acceptance, but contracts, validators and offline retrieval
+evaluation can continue without them. Corpus selection blocks the final labels and
+any artifacts meant for publication.
+
+## Active schedule: learn, implement and demonstrate
+
+Dates are in November 2026. Each session is 2 h and includes applied study; no
+courses or certifications are added to the budget. The technical diagnosis is
+already prepared; other tasks are not considered done just because they appear in
+this schedule.
+
+| Session | Study | Implement | Closing evidence |
+|---|---|---|---|
+| 1 · Mon 9 | Auditing a RAG system, golden datasets, ports/adapters; custom tracing vs. an external tool | Review provenance and history; define the v2 contract and a tracing proposal; write 20 questions | Provenance recorded, contract validated and questions reviewed; explicit tracing decision before instrumenting |
+| 2 · Tue 10 | Inverted index, BM25, chunking; Hit rate, Recall and MRR; hard negatives | Complete 30–40 questions; extend the retrieval evaluator; save a baseline | Reproducible metrics, explicit denominators and per-case results |
+| 3 · Wed 11 | Groundedness vs. correctness; abstention; LLM-as-judge biases and calibration | Close milestone 4 live acceptance; write the judge rubric; hand-label 10 answers; joint offline/live command and reports | Model/snapshot and metrics recorded; real browser flow; human/judge agreement computed; JSON and Markdown for the run |
+| 4 · Thu 12 | Experiment design and context propagation | Compare one variable (first option: top-k); start `request_id` and spans | Before/after table with quality and cost; documented decision; evaluation checkpoint |
+| 5 · Mon 16 | Spans, p50/p95 percentiles, tokens and cost calculation | Complete tracing; versioned pricing configuration; metrics script or restricted view | Total/per-stage latency, cost per query and last-24 h spend on real data; TTFT not applicable |
+| 6 · Tue 17 | Optimizing with evaluation; Docker Compose and an HTTPS proxy | One measured optimization (first option: reduce context/top-k); prepare Compose and Caddy for the current stack | Before/after quality, latency and cost table; VPS start-up without premature public exposure |
+| 7 · Wed 18 | Access, rate limiting, spend-cap concurrency; backup/restore | Login or restricted demo mode; query/input limits; budget reservation; backup of PDFs and sidecars | Denial before calling the provider when the budget is exhausted, even under concurrency; restore and index rebuild tested; protected HTTPS |
+| 8 · Thu 19 | ADRs and communicating technical results | README as a case study; ADRs for evaluation, experiment and observability/cost | README with real figures and links; review by someone outside the project pending until done |
+| Wrap-up · 21–22 | Reproducibility and scope review | Resolve pending items by priority; test from a clean install; document what was cut | Reproducible evaluation and metrics; demo only if it meets the controls; pending items and limitations explicit |
+
+**Checkpoint: 12 November.** If the joint evaluation does not run end to end with live
+results and calibration, week-two deployment is cut.
+**Final cut: 22 November.** Whatever is not done moves to the deferred backlog; tasks
+are not silently compressed and hours or metrics are not invented.
+
+## Deliverable contracts
+
+### 1. Reproducible evaluation · highest priority · indicative budget 6 h
+
+- [ ] Reuse `retrieval/evaluation.py`, `answers/evaluation.py` and
+  `services/api/evals/`; keep the v1 datasets as regression sets.
+- [ ] Version a v2 dataset with `factual`, `multi_doc` and `unanswerable` questions,
+  expected facts and relevance by document/page (offsets where needed). Resolve
+  chunks for each configuration: fixed chunk IDs invalidate chunking changes.
+- [ ] Measure Hit rate@k, Recall@k and MRR@k. Report abstention and false positives
+  separately for cases without relevant passages; make denominators and per-case
+  results explicit.
+- [ ] Measure groundedness, correctness (1–3 scale), abstention and the existing
+  milestone 4 citation/fact gates. Keep human review of support and adversarial cases.
+- [ ] Version the rubric and calibrate the judge against 10 answers scored by a
+  person; compute agreement. Do not use the generator as the sole judge of itself.
+- [ ] Define a joint Make command with explicit offline and live modes.
+  **That command does not exist yet**; use the verification commands below for now.
+- [ ] Store JSON and a Markdown summary per run, with a unique ID, commit, dataset,
+  configuration, model/snapshot, duration and failures. Define the path with the
+  contract; exclude secrets and private material.
+- [ ] Run `make eval-answers`, record the model comparison/selection and complete a
+  real flow: upload → extract → index → answer → open citation in the PDF; also check
+  an unanswerable question and console errors.
+
+Done: reproducible end-to-end evaluation, v2 baseline, live metrics and calibration
+recorded. An offline schema validation does not satisfy this.
+
+### 2. Observability and experiment · high priority · indicative budget 4 h
+
+- [ ] Decide trace persistence and retention through an ADR; initial proposal:
+  custom backend instrumentation without a new service. Do not assume the
+  rebuildable SQLite index can hold a durable spend history.
+- [ ] Propagate `request_id`; measure retrieval and generation, plus any other stages
+  that actually exist. Record failures, latencies, tokens, cost, top-k, chunks and
+  prompt version without storing secrets or unnecessary private content.
+- [ ] Version per-model prices with their date/reference when implementing costs.
+- [ ] Expose metrics through a script or restricted view: total and per-stage p50/p95,
+  average cost per query and last-24 h spend. There is no streaming: TTFT is N/A.
+- [ ] Compare one variable with the full evaluation and record the decision. Do not
+  add hybrid search or reranking to this cut just to manufacture an experiment.
+- [ ] Measure one optimization with traces and evaluation without degrading the
+  quality gates. A cache or model change must justify invalidation/scope first.
+
+Done: before/after tables and metrics taken from real runs, with comparable
+configuration and an explained decision.
+
+### 3. Protected demo · conditional on the checkpoint · indicative budget 3 h
+
+- [ ] Confirm the VPS, domain/subdomain, login or demo mode, daily/monthly budget and
+  limit reset policy.
+- [ ] Prepare Compose with web/API and the current persistent storage; Caddy for
+  HTTPS. Real variables outside the repository; `.env.example` documented.
+- [ ] Implement access, per-identity/IP rate limiting and input limits; also check the
+  existing PDF size and page-count limits.
+- [ ] Reserve budget before provider calls, including concurrent/in-flight requests.
+  Summing spend after completion does not guarantee a daily maximum.
+- [ ] Test rejection before calling the provider and an explicit response when the
+  quota is exhausted.
+- [ ] Automate backups of PDFs/sidecars and verify restore and SQLite rebuild. Do not
+  use `pg_dump`: there is no PostgreSQL in this cut.
+
+Done: an HTTPS link with tested controls and documented recovery. If the checkpoint
+or a pre-publication control fails, the demo stays pending.
+
+### 4. Document decisions and results · indicative budget 3 h
+
+- [ ] README: purpose, real architecture, local setup, evaluation results,
+  experiment, latency and cost, demo if it exists, and limitations.
+- [ ] New ADRs from `0006`: evaluation/calibration, experiment decision and
+  observability/spend protection, cross-linked where relevant.
+- [ ] External review of the README and verification from a clean install.
+- [ ] Update `PROGRESS.md` each session with commands, results and blockers; record
+  actual hours only when they are known.
+
+Done: every quality, performance or deployment claim has accessible evidence.
+
+## Study guide over the current code
+
+Review these fundamentals when a task depends on them, without starting a separate
+implementation track:
+
+| Topic | Reading or practice in the repository | Sign of understanding |
+|---|---|---|
+| FastAPI, async/threads, idempotency, dataclasses/Pydantic, ports/adapters | [Ingestion flow](docs/architecture/ingestion-flow.md), [backend boundaries](docs/architecture/backend-boundaries.md), ADRs 2–5 | Explain states, retries and responsibilities by following a real request |
+| BM25 and retrieval evaluation | ADR 4, chunking and the retrieval evaluator | Explain why v1's 1.0 does not prove an improvement and how Recall differs from MRR |
+| TypeScript and trust boundaries | `apps/web/lib/api.ts`, tests and `apps/web/AGENTS.md` | Follow JSON → `unknown` validation → types/unions → UI state; identify invalid payloads |
+| Testing and CI | `Makefile`, pytest/Vitest tests and `.github/workflows/ci.yml` | Choose a domain, contract or UI test for a specific failure; distinguish offline/live |
+| Grounding and safety | ADR 5 and the [milestone 4 contract](docs/plans/milestone-04-grounded-answers.md) | Explain a valid citation vs. a supported claim, abstention and indirect injection |
+
+## Deferred study and implementation backlog
+
+The former 24-week proposal is folded in here as an **indicative post-cut sequence**,
+with no committed dates and no automatic authorization to start infrastructure.
+Before each milestone: review the need, write a plan/ADR and define acceptance
+criteria. Anything already advanced in November is verified and reused.
+
+| Order | Study | Possible implementation | Required evidence |
+|---|---|---|---|
+| 1 | Hard datasets, paraphrases, acronyms and negatives; test pyramid, contracts and E2E | Grow v2 to 60–80 queries if needed; review frontend validation; 1–2 E2E flows | Milestone 4 accepted; dataset useful for comparison; invalid-payload and E2E tests in CI |
+| 2 | Embeddings, cosine similarity, normalization and cost | `Retriever` port and semantic search on the current stack; brute force if the corpus is small | ADR and BM25/semantic comparison on a fixed dataset |
+| 3 | Hybrid retrieval, RRF, filters and cross-encoders | `HybridRetriever`; reranker only if justified | BM25/semantic/hybrid table with quality, latency and a justified default |
+| 4 | PostgreSQL, MVCC, indexes, EXPLAIN, pools, HNSW/IVFFlat | Migrate to PostgreSQL/pgvector with `workspace_id`, separate from the strategy change | ADR superseding ADR 4 and metric parity before/after |
+| 5 | Semantic evaluation, feedback modeling and traceability | Reuse November evals/traces; persist answers and useful/incorrect feedback | Calibrated judge; cost/latency per answer; explicit closure of milestone 5 |
+| 6 | SSE, backpressure, AbortController | Streaming that validates every claim/citation before showing it | Cancellation tests and rejection of uncited claims; new decision on ADR 5 |
+| 7 | Indirect injection, PII, CORS, uploads; 429, backoff and circuit breakers | Threat model and resilience audit of what is already implemented | Provider-failure and adversarial-PDF tests; gaps documented |
+| 8 | Queues, workers, at-least-once, acknowledgements and visibility timeout | Backend orchestration; PostgreSQL queue with `FOR UPDATE SKIP LOCKED`; `queued` state via ADR | Transition tests; ingestion independent of the HTTP cycle |
+| 9 | Idempotency keys, outbox, dead letters and orphaned jobs | Upload idempotency and job recovery | Tests for duplicates and crashes during indexing |
+| 10 | Authentication, authorization, isolation and RLS | Users/workspaces and per-tenant limits; Redis only if an ADR justifies it | Tests that prevent retrieving another tenant's chunks |
+| 11 | Multi-stage Docker and service operations | Extend Compose to web/API/worker/PostgreSQL if already accepted | Clean start-up and recovery verified |
+| 12 | AWS: S3, RDS, SQS, ECS/Fargate, IAM, Secrets Manager, CloudFront | Cloud ADR with a monthly estimate and a budget alarm | Decision accepted before deploying |
+| 13 | Terraform, remote state, CI/CD, OIDC and migrations | `infra/`, reproducible deployment and an SQS adapter if appropriate | Reviewed Terraform plan, reachable environment and verified pipeline |
+| 14 | CloudWatch, alarms and load testing | Dashboard for traffic, errors, retrieval/LLM, tokens, cost and percentiles | Load test and alarm response recorded |
+| 15 | Datasets derived from real usage; tool calling, MCP and human-in-the-loop | Turn negative feedback into cases; bounded tools to search/retrieve/compare | Versioned dataset and tool evals; no turning the app into an agent without a decision |
+| 16 | Benchmarking, system design and communication | Hardening, final benchmarks, C4/sequence/deployment diagrams and demo | Quality/cost report and README checked against real capabilities |
+
+Outside the November cut: agents/LangGraph/MCP, fine-tuning, multi-tenancy, UI
+redesign, Kubernetes/Terraform and additional cloud. Courses, certifications, more
+than one experiment or more than one optimization are also not scheduled in those 16 h.
+
+## Verify and record progress
+
+Commands available today, from the repository root:
+
+```bash
+make doctor
+make eval-retrieval
+(cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only)
+make check
+# Requires credentials/model and budget; makes paid calls:
+make eval-answers
+```
+
+While implementing, run the focused checks first (`make check-api` or
+`make check-web`) and then the full gate before claiming full verification. Record
+real results and blockers in `PROGRESS.md`; do not mark tasks in this plan complete
+without their evidence. Historical delivery records remain in `docs/progress/`.

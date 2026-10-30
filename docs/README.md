@@ -30,10 +30,8 @@ changes; do not rewrite an accepted decision as if it had never existed.
 
 ## Plans and delivery history
 
-- `../ROADMAP.md`: active production roadmap, 9–22 November 2026, eight sessions.
-- `plans/production-first-steps.md`: current-stack diagnosis, adaptations, ordered
-  initial tasks, dependencies and acceptance criteria.
-- `plans/roadmap.md`: deferred 24-week proposal, retained as long-term reference.
+- [../ROADMAP.md](../ROADMAP.md): single study and implementation plan, active
+  November schedule, dependencies, acceptance criteria and deferred long-term backlog.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.

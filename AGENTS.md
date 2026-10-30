@@ -10,6 +10,7 @@ provenance, retrieve attributable passages, and generate only grounded answers w
 verifiable citations.
 
 - Product scope, architecture, setup and configuration: `README.md`
+- Study and implementation plan, schedule and deferred backlog: `ROADMAP.md`
 - Current work, blockers and next action: `PROGRESS.md`
 - Documentation map: `docs/README.md`
 - Decisions and their rationale: `docs/adr/`
@@ -74,6 +75,8 @@ but deliberately does not call a provider. Record exact commands and outcomes in
 - Keep ingestion and retrieval usable without provider credentials.
 - Preserve stable error envelopes and explicit state transitions. Never smooth a
   failure into a success state.
+- Write all repository documentation, code comments and commit messages in English.
+  Non-English text belongs only in test data that deliberately exercises other languages.
 - Never commit secrets, `.env` files, uploaded documents, generated caches or build
   output.
 - Do not add speculative infrastructure or features from the README's “Not implemented

@@ -25,12 +25,12 @@ Production preparation (`ROADMAP.md`, execution window 9–22 November):
   with sequence and state diagrams. The backend import rules are now enforced by
   `services/api/tests/test_architecture_boundaries.py`.
 - Pending: milestone 4 live acceptance (blocked, see below).
-- Added the supplied production roadmap in `ROADMAP.md`, preserving the original
-  plan with an explicit integration note. The former 24-week proposal is deferred.
-- Completed the technical diagnosis and ordered the initial tasks in
-  `docs/plans/production-first-steps.md`; dataset v2, judge calibration, tracing
-  decisions and deployment remain pending. Corpus provenance and history review
-  are not certified by this preparation.
+- Consolidated study and implementation next steps in `ROADMAP.md`: current-stack
+  diagnosis, dependencies, eight November sessions, acceptance evidence and the
+  deferred long-term learning/implementation sequence. The two former planning
+  documents were removed; their content lives in `ROADMAP.md` and git history.
+- Dataset v2, judge calibration, tracing decisions and deployment remain pending.
+  Corpus provenance and history review are not certified by this documentation work.
 
 ## Blocked
 
@@ -42,7 +42,7 @@ Production preparation (`ROADMAP.md`, execution window 9–22 November):
 Confirm a publishable corpus and record the history/provenance review, then define
 and validate the v2 dataset/report contract using the existing Python harness.
 Draft the first 20 questions and grow to 30–40 with at least five unanswerable cases
-before comparing retrieval changes. See `docs/plans/production-first-steps.md`.
+before comparing retrieval changes. See the next-action checklist and deliverable contracts in `ROADMAP.md`.
 
 In parallel with offline preparation, the project owner can configure provider
 credentials outside the repository and a live-evaluation budget. Then compare models
@@ -61,7 +61,15 @@ scope if evaluation is incomplete; the hard cutoff is 22 November.
 
 ## Latest verification
 
-On 2026-10-30, documentation-only roadmap integration:
+On 2026-10-30, documentation-only consolidation of study and implementation plans:
+
+- `git diff --check` passed. Local Markdown file links in changed documents were
+  checked and resolved. `ROADMAP.md` was translated to English and the two former
+  planning pointer files were removed.
+- `make check` and live evaluations were not rerun: this slice changes documentation
+  only and makes no new application-quality or live-acceptance claims.
+
+Earlier roadmap preparation on the same date:
 
 - `make doctor` passed: shell Python 3.13.14, Node 24.22.1; declared runtime targets
   remain Python 3.12 and Node 22.
@@ -69,8 +77,6 @@ On 2026-10-30, documentation-only roadmap integration:
   existing saturated baseline, not a new quality improvement.
 - `cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only`
   passed: 2 documents, 13 cases. No live provider calls or judge calibration ran.
-- `git diff --check` passed. `make check` was not rerun: this slice changes only
-  documentation. Prior architecture changes in the working tree were preserved.
 
 ## Previous API verification
 
