@@ -52,6 +52,7 @@ claiming the repository is verified.
 make check-api       # API lint, format, types, tests and offline evaluations
 make check-web       # web lint, types, tests, build and dependency audit
 make check           # every local/CI gate
+make e2e             # browser flows via Playwright; no secrets needed
 make eval-retrieval  # deterministic retrieval quality thresholds
 make eval-answers    # paid live provider evaluation; requires OpenAI configuration
 ```
