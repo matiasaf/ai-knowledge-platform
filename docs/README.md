@@ -23,6 +23,7 @@ Use this page to load only the context needed for a task.
 - `adr/0003-page-extraction-sidecars.md`
 - `adr/0004-sqlite-fts5-for-local-retrieval.md`
 - `adr/0005-structured-grounded-answer-pipeline.md`
+- `adr/0006-in-process-request-tracing.md`
 
 Read ADRs before changing storage, status vocabulary, extraction persistence, retrieval
 or grounded-answer boundaries. Add a new ADR when a durable architectural decision

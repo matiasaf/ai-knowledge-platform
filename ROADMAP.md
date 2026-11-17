@@ -129,12 +129,14 @@ recorded. An offline schema validation does not satisfy this.
 
 ### 2. Observability and experiment · high priority · indicative budget 4 h
 
-- [ ] Decide trace persistence and retention through an ADR; initial proposal:
+- [x] Decide trace persistence and retention through an ADR; initial proposal:
   custom backend instrumentation without a new service. Do not assume the
   rebuildable SQLite index can hold a durable spend history.
+  [ADR 0006](docs/adr/0006-in-process-request-tracing.md), 2026-11-16.
 - [ ] Propagate `request_id`; measure retrieval and generation, plus any other stages
   that actually exist. Record failures, latencies, tokens, cost, top-k, chunks and
   prompt version without storing secrets or unnecessary private content.
+  Done on 2026-11-16 except cost, which waits for versioned prices.
 - [ ] Version per-model prices with their date/reference when implementing costs.
 - [ ] Expose metrics through a script or restricted view: total and per-stage p50/p95,
   average cost per query and last-24 h spend. There is no streaming: TTFT is N/A.

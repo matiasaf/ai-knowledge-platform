@@ -30,9 +30,18 @@ class GeneratedClaim:
 
 
 @dataclass(frozen=True, slots=True)
+class TokenUsage:
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
 class GenerationResult:
     outcome: AnswerOutcome
     claims: tuple[GeneratedClaim, ...] = ()
+    # Reported by the provider for tracing and cost; never shown to clients.
+    model: str | None = None
+    usage: TokenUsage | None = None
 
 
 @dataclass(frozen=True, slots=True)

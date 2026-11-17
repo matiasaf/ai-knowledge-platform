@@ -15,6 +15,7 @@ from ai_knowledge_platform.documents.storage import (
     update_document_status,
 )
 from ai_knowledge_platform.errors import ApiError, ErrorCode
+from ai_knowledge_platform.observability.tracing import span
 from ai_knowledge_platform.retrieval.chunking import chunk_extraction
 from ai_knowledge_platform.retrieval.domain import DocumentIndex, RetrievalMatch
 from ai_knowledge_platform.retrieval.repository import (
@@ -95,13 +96,17 @@ async def retrieve_evidence(
     limit: int,
     document_id: UUID | None,
 ) -> tuple[RetrievalMatch, ...]:
-    return await run_in_threadpool(
-        search_chunks,
-        database_path,
-        query,
-        limit=limit,
-        document_id=document_id,
-    )
+    with span("retrieval", k=limit, document_filter=document_id is not None) as stage:
+        matches = await run_in_threadpool(
+            search_chunks,
+            database_path,
+            query,
+            limit=limit,
+            document_id=document_id,
+        )
+        stage.set("matches", len(matches))
+        stage.set("chunks", [f"{m.document_id}:{m.page_number}:{m.chunk_index}" for m in matches])
+    return matches
 
 
 def _build_and_store_index(

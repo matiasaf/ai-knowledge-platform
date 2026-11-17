@@ -88,6 +88,11 @@ Backend
 - One error envelope for every failure, including framework validation errors, with
   stable machine-readable codes.
 - CORS limited to the configured frontend origin.
+- Request tracing (ADR 6): every response carries an `X-Request-ID`; each request is
+  appended as one JSON line to `data/traces/traces-YYYY-MM-DD.jsonl` with route, status,
+  total duration and `retrieval`/`generation` spans (k, matches, prompt version,
+  provider model, input/output tokens). Question, evidence and answer text are never
+  recorded. There is no metrics report, cost calculation or retention job yet.
 
 Frontend
 
@@ -117,7 +122,7 @@ in any form here:
 
 OCR · embeddings · semantic or hybrid retrieval · vector search · pgvector ·
 conversation history · persisted answers · streaming · live model acceptance results ·
-latency, token and cost observability · feedback capture · authentication ·
+latency percentiles, cost and spend reporting · feedback capture · authentication ·
 multi-tenancy · PostgreSQL · Docker Compose · background workers or queues · cloud
 infrastructure · a design system · non-PDF file types · document listing endpoints.
 
@@ -246,7 +251,8 @@ together for answers):
 | `AKP_ANSWER_EVIDENCE_LIMIT` | `5`                     | Maximum retrieved chunks sent to generation; between 1 and 10.              |
 | `AKP_ANSWER_MAX_OUTPUT_TOKENS` | `800`                | Maximum structured generation output; between 1 and 4000.                   |
 | `AKP_ANSWER_TIMEOUT_SECONDS` | `30`                   | Total provider timeout; greater than 0 and at most 120 seconds.              |
-| `AKP_CORS_ALLOW_ORIGINS`   | `http://localhost:3000` | Comma-separated list of browser origins allowed to call the API.      |
+| `AKP_CORS_ALLOW_ORIGINS`   | `http://localhost:3000` | Comma-separated list (or JSON array) of browser origins allowed to call the API. |
+| `AKP_TRACING_ENABLED`      | `true`                  | Write per-request trace records under `<data_dir>/traces/` (ADR 6).   |
 
 Frontend (`apps/web/.env.local`, optional):
 

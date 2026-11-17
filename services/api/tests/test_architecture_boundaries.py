@@ -73,6 +73,13 @@ def test_infrastructure_library_has_a_single_owner(library: str, owner: str) -> 
     assert importers == {owner}
 
 
+def test_tracing_module_uses_only_the_standard_library() -> None:
+    # Services and adapters import it; it must not drag a framework into them (ADR 6).
+    roots = _imported_roots(PACKAGE_ROOT / "observability/tracing.py")
+
+    assert roots <= set(sys.stdlib_module_names)
+
+
 def test_domain_module_list_matches_files() -> None:
     for relative_path in DOMAIN_MODULES:
         assert (PACKAGE_ROOT / relative_path).is_file(), relative_path

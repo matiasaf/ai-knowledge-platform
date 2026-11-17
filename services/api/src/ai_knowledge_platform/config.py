@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # NoDecode stops pydantic-settings from JSON-decoding the raw environment value
     # before the validator below can split the documented comma-separated form.
     cors_allow_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    tracing_enabled: bool = True
 
     @field_validator("data_dir")
     @classmethod
@@ -74,6 +75,11 @@ class Settings(BaseSettings):
     @property
     def documents_dir(self) -> Path:
         return self.data_dir / "documents"
+
+    @property
+    def traces_dir(self) -> Path:
+        # Operational history (ADR 6): separate from documents and the rebuildable index.
+        return self.data_dir / "traces"
 
     @property
     def knowledge_db_path(self) -> Path:

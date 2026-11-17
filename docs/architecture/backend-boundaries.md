@@ -27,6 +27,12 @@ the OpenAI adapter into `app.state` during startup). `retrieval/evaluation.py` a
 `answers/evaluation.py` load the versioned evaluation datasets with Pydantic; they are
 used by `make eval-*`, not by the HTTP API.
 
+`observability/` (ADR 6) is cross-cutting. `tracing.py` holds the context-variable
+trace and the `span()` helper; it imports only the standard library (checked by
+`test_architecture_boundaries.py`) and is used by `retrieval/service.py` and
+`answers/service.py`. `middleware.py` is the ASGI adapter that assigns request IDs and
+appends JSONL records; only `main.py` wires it.
+
 ```mermaid
 flowchart TD
     R[HTTP routers] --> S[Application services]
