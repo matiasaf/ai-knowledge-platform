@@ -173,8 +173,9 @@ vector store.
 │   │   ├── health.py          GET /health
 │   │   ├── main.py            application factory
 │   │   ├── documents/         domain, storage, extraction, schemas and routes
-│   │   └── retrieval/         chunking, SQLite FTS5, search and evaluation
-│   ├── evals/                 versioned retrieval corpus, queries and thresholds
+│   │   ├── retrieval/         chunking, SQLite FTS5, search and evaluation
+│   │   └── evaluation/        schema v2 dataset contract, offline metrics and reports
+│   ├── evals/                 versioned corpora, cases and thresholds (v1 regression, v2)
 │   └── tests/                 pytest suite, temporary data directories only
 ├── docs/adr/                  architecture decision records
 ├── docs/plans/                detailed designs for the next implementation slice
@@ -273,6 +274,7 @@ cd services/api && uv run mypy                  # strict type checking
 cd services/api && uv run pytest                # tests
 cd services/api && uv run python -m ai_knowledge_platform.retrieval.evaluation
 cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
+cd services/api && uv run python -m ai_knowledge_platform.evaluation --validate-only
 
 cd apps/web && npm run lint       # Biome lint and format check
 cd apps/web && npm run typecheck  # tsc --noEmit
@@ -280,6 +282,11 @@ cd apps/web && npm run test       # Vitest + Testing Library
 cd apps/web && npm run build      # production build
 cd apps/web && npm audit --audit-level=high # dependency audit
 ```
+
+`make eval-offline` runs the schema v2 retrieval evaluation (pass `DATASET=path` for
+another dataset) and writes a JSON and Markdown report per run to the git-ignored
+`services/api/evals/results/`. The dataset and report contract is described in
+[the v2 evaluation contract](docs/plans/evaluation-v2-contract.md).
 
 With `AKP_OPENAI_API_KEY` and `AKP_OPENAI_MODEL` configured:
 

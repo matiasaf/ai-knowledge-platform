@@ -1,6 +1,6 @@
 # Current project progress
 
-Last updated: 2026-10-30
+Last updated: 2026-11-16
 
 This is the resumable state for active work. Detailed completed-slice records live in
 `docs/progress/`; plans and architectural rationale live in `docs/plans/` and
@@ -29,8 +29,36 @@ Production preparation (`ROADMAP.md`, execution window 9–22 November):
   diagnosis, dependencies, eight November sessions, acceptance evidence and the
   deferred long-term learning/implementation sequence. The two former planning
   documents were removed; their content lives in `ROADMAP.md` and git history.
-- Dataset v2, judge calibration, tracing decisions and deployment remain pending.
-  Corpus provenance and history review are not certified by this documentation work.
+- Done offline: schema v2 dataset and report contract
+  (`docs/plans/evaluation-v2-contract.md`), offline retrieval evaluator with
+  Hit rate/Recall/MRR@k and per-run JSON + Markdown reports (`make eval-offline`), and a
+  14-case **draft** fixture `services/api/evals/v2_fixture.json` built from the v1
+  corpus. Its cases are not human-reviewed and it is not a baseline.
+- Pending: reviewed v2 baseline over a publishable corpus, answer/judge scoring on v2,
+  live mode, tracing decisions and deployment. Corpus provenance and history review
+  are not certified.
+
+- Done: browser E2E suite (Playwright 1.64.1) in `apps/web/e2e/core-flows.spec.ts`,
+  run with `make e2e`. Three provider-free flows: upload → extract → index → search with
+  page provenance (plus an explicit retrieval miss), non-PDF rejection, and the explicit
+  `generation_not_configured` failure. It starts its own API (port 8100) and web app
+  (port 3100) on a temporary data dir. CI runs it in a separate `e2e` job and uploads
+  traces on failure; that job has not run on GitHub yet.
+- Fixed (2026-11-16): `AKP_CORS_ALLOW_ORIGINS` given as a comma-separated env var
+  crashed API startup because pydantic-settings JSON-decoded list fields before the
+  validator ran. The field is now `NoDecode`; comma-separated and JSON array values are
+  both accepted and covered by `services/api/tests/test_config.py`.
+- Checkpoint (12 November) outcome: the joint evaluation did not run end to end with
+  live results and calibration (no credentials, no reviewed corpus). Per the roadmap
+  rule, week-two deployment (deliverable 3) is cut and moves to the deferred backlog.
+
+- Done: dependency refresh (2026-10-30). Web: `next` 16.3.0 → 16.4.3 plus in-range
+  updates and `npm audit fix` for transitive `sharp`, `source-map-js`, `undici` and
+  `vite`; `npm audit --audit-level=high` reports 0 vulnerabilities. API: `uv lock
+  --upgrade` within declared ranges (e.g. FastAPI 0.162.0, Pydantic 2.14.2, pypdf
+  6.21.4, Starlette 1.10.0, Ruff 0.17.3, mypy 2.4.1). Majors deliberately deferred:
+  TypeScript 7, Vitest 5, `@types/node` 26, React 19.3, Biome 2.6. Verified with
+  `make check` and `make e2e` (3/3), both passing locally.
 
 ## Blocked
 
@@ -39,10 +67,11 @@ Production preparation (`ROADMAP.md`, execution window 9–22 November):
 
 ## Next action
 
-Confirm a publishable corpus and record the history/provenance review, then define
-and validate the v2 dataset/report contract using the existing Python harness.
-Draft the first 20 questions and grow to 30–40 with at least five unanswerable cases
-before comparing retrieval changes. See the next-action checklist and deliverable contracts in `ROADMAP.md`.
+Confirm a publishable corpus and record the history/provenance review. Then write the
+first 20 questions as a v2 dataset over that corpus (contract and validator are ready),
+grow to 30–40 with at least five unanswerable cases, review them and mark the dataset
+`baseline` before comparing retrieval changes. See the next-action checklist and
+deliverable contracts in `ROADMAP.md`.
 
 In parallel with offline preparation, the project owner can configure provider
 credentials outside the repository and a live-evaluation budget. Then compare models
@@ -60,6 +89,25 @@ scope if evaluation is incomplete; the hard cutoff is 22 November.
 - Update this file when the active state, blocker, next action or evidence changes.
 
 ## Latest verification
+
+On 2026-11-16, `make check-api` passed: Ruff, formatting, strict mypy (49 files), 78
+tests, v1 retrieval thresholds, v1 answer validation and v2 draft validation. Web and
+E2E were not rerun (no web change).
+
+On 2026-10-30, `make e2e`-equivalent `npm run e2e`: 3 passed. Web lint, typecheck and
+40 Vitest tests still pass.
+
+On 2026-10-30, evaluation v2 contract (offline):
+
+- `make check-api` passed: Ruff, formatting, strict mypy (48 files), 75 tests including
+  `tests/test_evaluation_v2.py`, v1 retrieval thresholds, v1 answer validation and v2
+  dataset validation.
+- `make eval-offline` on the draft fixture: Hit rate@3 = Recall@3 = MRR@3 = 0.80 over
+  10 answerable cases (misses: the paraphrase and the Spanish question); 2 of 4
+  unanswerable cases returned matches; thresholds `not_set`. Draft numbers only.
+- Web lint, type-check, tests and build passed; `npm audit --audit-level=high` failed
+  at the time, so `make check` did not pass. Resolved later the same day by the
+  dependency refresh (see In progress). No live provider calls.
 
 On 2026-10-30, documentation-only consolidation of study and implementation plans:
 

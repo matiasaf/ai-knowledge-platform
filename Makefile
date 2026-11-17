@@ -38,6 +38,11 @@ check-api: ## Lint, format-check, type-check and test the API
 	cd $(API_DIR) && uv run pytest
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.evaluation --validate-only
+
+.PHONY: eval-offline
+eval-offline: ## Run the offline v2 evaluation and write JSON/Markdown reports to evals/results
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.evaluation $(DATASET)
 
 .PHONY: eval-retrieval
 eval-retrieval: ## Run the fixed retrieval evaluation and enforce its thresholds
@@ -54,6 +59,11 @@ check-web: ## Lint, type-check, test, build and audit the web app
 	cd $(WEB_DIR) && npm run test
 	cd $(WEB_DIR) && npm run build
 	cd $(WEB_DIR) && npm audit --audit-level=high
+
+.PHONY: e2e
+e2e: ## Run browser E2E tests against a fresh local API and web app (no secrets needed)
+	cd $(WEB_DIR) && npx playwright install chromium
+	cd $(WEB_DIR) && npm run e2e
 
 .PHONY: check
 check: check-api check-web ## Run every quality gate that CI runs

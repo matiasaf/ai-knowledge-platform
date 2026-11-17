@@ -32,6 +32,8 @@ changes; do not rewrite an accepted decision as if it had never existed.
 
 - [../ROADMAP.md](../ROADMAP.md): single study and implementation plan, active
   November schedule, dependencies, acceptance criteria and deferred long-term backlog.
+- `plans/evaluation-v2-contract.md`: v2 dataset schema, labelling rules, retrieval
+  metrics and run report format.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.

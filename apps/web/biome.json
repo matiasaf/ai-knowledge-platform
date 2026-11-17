@@ -1,7 +1,7 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
   "files": {
-    "includes": ["**", "!.next", "!next-env.d.ts"]
+    "includes": ["**", "!.next", "!next-env.d.ts", "!test-results", "!playwright-report"]
   },
   "formatter": {
     "enabled": true,

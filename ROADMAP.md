@@ -56,8 +56,9 @@ retrieval improvement. Commands and their limits are recorded in `PROGRESS.md`.
 
 - [ ] Confirm a publishable corpus and record its origin, license/permissions and the
   history review. Inspecting the current files does not replace reviewing commits.
-- [ ] Define and validate the v2 dataset and report contract with the existing Python
-  harness. This can move forward offline with fixtures while the corpus is confirmed.
+- [x] Define and validate the v2 dataset and report contract with the existing Python
+  harness. Done offline for retrieval on 2026-10-30: see the
+  [v2 contract](docs/plans/evaluation-v2-contract.md) and `make eval-offline`.
 - [ ] Write the first 20 questions against the reviewed sources; grow to 30–40, with
   at least five unanswerable and genuinely multi-document cases.
 - [ ] Configure `AKP_OPENAI_API_KEY`, `AKP_OPENAI_MODEL` and a budget outside the
@@ -108,7 +109,8 @@ are not silently compressed and hours or metrics are not invented.
 - [ ] Version the rubric and calibrate the judge against 10 answers scored by a
   person; compute agreement. Do not use the generator as the sole judge of itself.
 - [ ] Define a joint Make command with explicit offline and live modes.
-  **That command does not exist yet**; use the verification commands below for now.
+  `make eval-offline` covers the offline v2 retrieval part; **live mode does not
+  exist yet**.
 - [ ] Store JSON and a Markdown summary per run, with a unique ID, commit, dataset,
   configuration, model/snapshot, duration and failures. Define the path with the
   contract; exclude secrets and private material.
@@ -218,6 +220,7 @@ Commands available today, from the repository root:
 ```bash
 make doctor
 make eval-retrieval
+make eval-offline
 (cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only)
 make check
 # Requires credentials/model and budget; makes paid calls:
