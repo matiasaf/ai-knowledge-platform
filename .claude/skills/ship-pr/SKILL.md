@@ -63,7 +63,7 @@ the Spanish cases in `services/api/evals/`). Talk to the user in their own langu
       directory so no real document or index is touched:
 
       ```bash
-      # services/api (CORS origins as a JSON array: the comma form crashes startup)
+      # services/api
       AKP_DATA_DIR="$(mktemp -d)" AKP_CORS_ALLOW_ORIGINS='["http://localhost:3001"]' \
         uv run uvicorn ai_knowledge_platform.main:app --port 8001
       # apps/web
