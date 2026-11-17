@@ -1,6 +1,6 @@
 # Current project progress
 
-Last updated: 2026-08-21
+Last updated: 2026-11-17
 
 This is the resumable state for active work. Detailed completed-slice records live in
 `docs/progress/`; plans and architectural rationale live in `docs/plans/` and
@@ -33,6 +33,12 @@ This is the resumable state for active work. Detailed completed-slice records li
   Starlette 1.10.0, Ruff 0.17.3, mypy 2.4.1). Majors deliberately deferred: TypeScript
   7, Vitest 5, `@types/node` 26, React 19.3, Biome 2.6. `make check` and `make e2e`
   (3/3) passed locally.
+- Dependency advisories (2026-11-17). Web: `next` 16.4.3 → 16.4.6 fixes two moderate
+  cache-leak advisories and the `SecurityFatalError` build stop. The `picomatch` ReDoS
+  advisory GHSA-fc5q-39xc-vjpf has no fixed release (every version <=4.0.7) and reaches
+  only dev tooling, so it is accepted until 2026-12-17 in `apps/web/audit-allowlist.json`.
+  `npm run audit:deps` (`scripts/audit.mjs`) replaces `npm audit --audit-level=high` in
+  `make check-web` and CI. Production dependencies report 0 vulnerabilities.
 
 ## In progress
 
