@@ -1,0 +1,10 @@
+{
+  "advisories": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "reason": "ReDoS via repeated extglobs. Reached only through dev tooling (vite, vitest, tinyglobby, fdir) that matches globs written in this repository, never user input. Every published version (<=4.0.7) is affected, and npm's only suggested fix downgrades vitest to 3.x. Production dependencies are clean. Remove once picomatch ships a fix.",
+      "reviewBy": "2026-12-17"
+    }
+  ]
+}

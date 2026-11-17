@@ -286,8 +286,13 @@ cd apps/web && npm run lint       # Biome lint and format check
 cd apps/web && npm run typecheck  # tsc --noEmit
 cd apps/web && npm run test       # Vitest + Testing Library
 cd apps/web && npm run build      # production build
-cd apps/web && npm audit --audit-level=high # dependency audit
+cd apps/web && npm run audit:deps # dependency audit
 ```
+
+The dependency audit fails on any high or critical `npm audit` advisory, development
+dependencies included, unless `apps/web/audit-allowlist.json` accepts it explicitly. Each
+accepted advisory records its GHSA id, package, reason and a `reviewBy` date; the gate
+also fails once that date passes or when an entry no longer matches a reported advisory.
 
 `make eval-offline` runs the schema v2 retrieval evaluation (pass `DATASET=path` for
 another dataset, e.g. `DATASET=evals/v2_nist_csf.json` for the draft NIST corpus) and writes a JSON and Markdown report per run to the git-ignored

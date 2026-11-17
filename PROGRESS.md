@@ -16,23 +16,12 @@ This is the resumable state for active work. Detailed completed-slice records li
   `docs/progress/day-04.md`.
 - The repository harness now has a root agent map, resumable state, a documentation
   index, declared runtime families and matching local/CI offline evaluation gates.
-
-- Browser E2E suite (Playwright 1.64.1) in `apps/web/e2e/core-flows.spec.ts`, run with
-  `make e2e` and by the CI `e2e` job (traces uploaded on failure). Three provider-free
-  flows: upload → extract → index → search with page provenance plus an explicit
-  retrieval miss, non-PDF rejection, and the explicit `generation_not_configured`
-  failure. It starts its own API (port 8100) and web app (port 3100) on a temporary
-  data dir.
-- Finding: `AKP_CORS_ALLOW_ORIGINS` given as a comma-separated env var crashes API
-  startup (pydantic-settings parses list fields as JSON before the validator runs); the
-  E2E config passes JSON. README documents the comma form; not fixed yet.
-- Dependency refresh (2026-10-30). Web: `next` 16.3.0 → 16.4.3 plus in-range updates
-  and `npm audit fix` for transitive `sharp`, `source-map-js`, `undici` and `vite`;
-  `npm audit --audit-level=high` reports 0 vulnerabilities. API: `uv lock --upgrade`
-  within declared ranges (e.g. FastAPI 0.162.0, Pydantic 2.14.2, pypdf 6.21.4,
-  Starlette 1.10.0, Ruff 0.17.3, mypy 2.4.1). Majors deliberately deferred: TypeScript
-  7, Vitest 5, `@types/node` 26, React 19.3, Biome 2.6. `make check` and `make e2e`
-  (3/3) passed locally.
+- Dependency advisories (2026-11-17). Web: `next` 16.4.3 → 16.4.6 fixes two moderate
+  cache-leak advisories and the `SecurityFatalError` build stop. The `picomatch` ReDoS
+  advisory GHSA-fc5q-39xc-vjpf has no fixed release (every version <=4.0.7) and reaches
+  only dev tooling, so it is accepted until 2026-12-17 in `apps/web/audit-allowlist.json`.
+  `npm run audit:deps` (`scripts/audit.mjs`) replaces `npm audit --audit-level=high` in
+  `make check-web` and CI. Production dependencies report 0 vulnerabilities.
 
 ## In progress
 
@@ -133,8 +122,15 @@ Hard cutoff remains 22 November; deliverable 3 (deploy) is already cut.
 
 ## Latest verification
 
-On 2026-11-17, after merging `origin/main` (PR #1: E2E suite and dependency refresh)
-into `docs/production-roadmap`; the web lockfiles are identical to `main`:
+On 2026-11-17, after merging `origin/main` again (PR #3: Next.js 16.4.6 and the audit
+allowlist) into `docs/production-roadmap`: `make check` passed — strict mypy (53 files),
+89 API tests, v1 retrieval thresholds, v1 answer and both v2 dataset validations, Biome,
+tsc, 49 Vitest tests, build and `npm run audit:deps` (1 accepted, 0 below high).
+`make e2e`: 3 passed. No live provider calls. This supersedes the web failures recorded
+below.
+
+Earlier on 2026-11-17, after merging `origin/main` (PR #1: E2E suite and dependency
+refresh) into `docs/production-roadmap`; the web lockfiles are identical to `main`:
 
 - `make check-api` passed: Ruff, formatting, strict mypy (53 files), 89 tests, v1
   retrieval thresholds (Recall@3 = MRR@3 = 1.0), v1 answer validation and validation of
