@@ -53,7 +53,7 @@ check-web: ## Lint, type-check, test, build and audit the web app
 	cd $(WEB_DIR) && npm run typecheck
 	cd $(WEB_DIR) && npm run test
 	cd $(WEB_DIR) && npm run build
-	cd $(WEB_DIR) && npm audit --audit-level=high
+	cd $(WEB_DIR) && npm run audit:deps
 
 .PHONY: e2e
 e2e: ## Run browser E2E tests against a fresh local API and web app (no secrets needed)
