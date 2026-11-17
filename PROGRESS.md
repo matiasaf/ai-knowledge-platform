@@ -1,6 +1,6 @@
 # Current project progress
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 This is the resumable state for active work. Detailed completed-slice records live in
 `docs/progress/`; plans and architectural rationale live in `docs/plans/` and
@@ -132,6 +132,25 @@ Hard cutoff remains 22 November; deliverable 3 (deploy) is already cut.
 - Update this file when the active state, blocker, next action or evidence changes.
 
 ## Latest verification
+
+On 2026-11-17, after merging `origin/main` (PR #1: E2E suite and dependency refresh)
+into `docs/production-roadmap`; the web lockfiles are identical to `main`:
+
+- `make check-api` passed: Ruff, formatting, strict mypy (53 files), 89 tests, v1
+  retrieval thresholds (Recall@3 = MRR@3 = 1.0), v1 answer validation and validation of
+  both v2 datasets.
+- `make check-web` failed. Biome, tsc and 40 Vitest tests passed. `npm run build`
+  exited 1 on alternate runs with Next.js's `SecurityFatalError` advisory reminder for
+  `next` 16.4.3 (the other runs printed the same warning and completed).
+  `npm audit --audit-level=high` exits 1: 7 vulnerabilities (1 moderate, 6 high) from a
+  `picomatch` ReDoS advisory reached through `vite`, `vitest`, `@vitejs/plugin-react`
+  and `tinyglobby` (dev dependencies; the suggested `--force` fix downgrades Vitest).
+  Both come from advisories published after the 2026-11-16 green run and affect `main`
+  equally. A dependency upgrade is needed as its own slice.
+- `make e2e`: one run had 2 of 3 flows fail (non-PDF rejection and the
+  `generation_not_configured` flow) and was not reproduced; the next three runs passed
+  3/3. Treat as possibly flaky until it recurs with a trace.
+- No live provider calls.
 
 On 2026-11-16 (session 5): `make check-api` passed — Ruff, formatting, strict mypy (53
 files), 89 tests, v1 retrieval thresholds, v1 answer validation and validation of both
