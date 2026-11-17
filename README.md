@@ -284,7 +284,7 @@ cd apps/web && npm audit --audit-level=high # dependency audit
 ```
 
 `make eval-offline` runs the schema v2 retrieval evaluation (pass `DATASET=path` for
-another dataset) and writes a JSON and Markdown report per run to the git-ignored
+another dataset, e.g. `DATASET=evals/v2_nist_csf.json` for the draft NIST corpus) and writes a JSON and Markdown report per run to the git-ignored
 `services/api/evals/results/`. The dataset and report contract is described in
 [the v2 evaluation contract](docs/plans/evaluation-v2-contract.md).
 

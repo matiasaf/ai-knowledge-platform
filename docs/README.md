@@ -34,6 +34,8 @@ changes; do not rewrite an accepted decision as if it had never existed.
   November schedule, dependencies, acceptance criteria and deferred long-term backlog.
 - `plans/evaluation-v2-contract.md`: v2 dataset schema, labelling rules, retrieval
   metrics and run report format.
+- `../services/api/evals/corpus/nist-csf.md`: provenance, license and rebuild steps for
+  the publishable NIST evaluation corpus.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.

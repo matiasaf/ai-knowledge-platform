@@ -48,6 +48,11 @@ jobs:
       - name: Validate answer evaluation dataset
         run: uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
 
+      - name: Validate v2 evaluation datasets
+        run: |
+          uv run python -m ai_knowledge_platform.evaluation --validate-only
+          uv run python -m ai_knowledge_platform.evaluation evals/v2_nist_csf.json --validate-only
+
   web:
     name: Web (Next.js)
     runs-on: ubuntu-latest

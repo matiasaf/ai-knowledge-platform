@@ -1,6 +1,6 @@
 # Study and implementation plan
 
-Updated: 2026-10-30.
+Updated: 2026-11-16.
 
 This file is the single source for the project's next steps: what to study, what to
 build, in what order, and what evidence marks each item as done. It combines the
@@ -56,11 +56,15 @@ retrieval improvement. Commands and their limits are recorded in `PROGRESS.md`.
 
 - [ ] Confirm a publishable corpus and record its origin, license/permissions and the
   history review. Inspecting the current files does not replace reviewing commits.
+  Corpus selected and documented on 2026-11-16 (three public-domain NIST publications,
+  [provenance](services/api/evals/corpus/nist-csf.md)); an automated history scan found
+  no documents, binaries or secrets. Owner sign-off on the history review is pending.
 - [x] Define and validate the v2 dataset and report contract with the existing Python
   harness. Done offline for retrieval on 2026-10-30: see the
   [v2 contract](docs/plans/evaluation-v2-contract.md) and `make eval-offline`.
 - [ ] Write the first 20 questions against the reviewed sources; grow to 30–40, with
-  at least five unanswerable and genuinely multi-document cases.
+  at least five unanswerable and genuinely multi-document cases. Drafted on 2026-11-16:
+  35 cases in `services/api/evals/v2_nist_csf.json`; human review pending.
 - [ ] Configure `AKP_OPENAI_API_KEY`, `AKP_OPENAI_MODEL` and a budget outside the
   repository to compare models and evaluate answers/judge.
 
@@ -89,6 +93,8 @@ this schedule.
 
 **Checkpoint: 12 November.** If the joint evaluation does not run end to end with live
 results and calibration, week-two deployment is cut.
+Outcome: not met (no credentials, no reviewed corpus by 12 November). Deliverable 3
+(protected demo) is cut from this window and moves to the deferred backlog.
 **Final cut: 22 November.** Whatever is not done moves to the deferred backlog; tasks
 are not silently compressed and hours or metrics are not invented.
 

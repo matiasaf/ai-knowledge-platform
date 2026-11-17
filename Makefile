@@ -39,6 +39,7 @@ check-api: ## Lint, format-check, type-check and test the API
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.retrieval.evaluation
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
 	cd $(API_DIR) && uv run python -m ai_knowledge_platform.evaluation --validate-only
+	cd $(API_DIR) && uv run python -m ai_knowledge_platform.evaluation evals/v2_nist_csf.json --validate-only
 
 .PHONY: eval-offline
 eval-offline: ## Run the offline v2 evaluation and write JSON/Markdown reports to evals/results
