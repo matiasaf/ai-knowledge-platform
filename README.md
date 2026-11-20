@@ -88,6 +88,11 @@ Backend
 - One error envelope for every failure, including framework validation errors, with
   stable machine-readable codes.
 - CORS limited to the configured frontend origin.
+- Request tracing (ADR 6): every response carries an `X-Request-ID`; each request is
+  appended as one JSON line to `data/traces/traces-YYYY-MM-DD.jsonl` with route, status,
+  total duration and `retrieval`/`generation` spans (k, matches, prompt version,
+  provider model, input/output tokens). Question, evidence and answer text are never
+  recorded. There is no metrics report, cost calculation or retention job yet.
 
 Frontend
 
@@ -117,7 +122,7 @@ in any form here:
 
 OCR · embeddings · semantic or hybrid retrieval · vector search · pgvector ·
 conversation history · persisted answers · streaming · live model acceptance results ·
-latency, token and cost observability · feedback capture · authentication ·
+latency percentiles, cost and spend reporting · feedback capture · authentication ·
 multi-tenancy · PostgreSQL · Docker Compose · background workers or queues · cloud
 infrastructure · a design system · non-PDF file types · document listing endpoints.
 
@@ -173,8 +178,9 @@ vector store.
 │   │   ├── health.py          GET /health
 │   │   ├── main.py            application factory
 │   │   ├── documents/         domain, storage, extraction, schemas and routes
-│   │   └── retrieval/         chunking, SQLite FTS5, search and evaluation
-│   ├── evals/                 versioned retrieval corpus, queries and thresholds
+│   │   ├── retrieval/         chunking, SQLite FTS5, search and evaluation
+│   │   └── evaluation/        schema v2 dataset contract, offline metrics and reports
+│   ├── evals/                 versioned corpora, cases and thresholds (v1 regression, v2)
 │   └── tests/                 pytest suite, temporary data directories only
 ├── docs/adr/                  architecture decision records
 ├── docs/plans/                detailed designs for the next implementation slice
@@ -245,7 +251,8 @@ together for answers):
 | `AKP_ANSWER_EVIDENCE_LIMIT` | `5`                     | Maximum retrieved chunks sent to generation; between 1 and 10.              |
 | `AKP_ANSWER_MAX_OUTPUT_TOKENS` | `800`                | Maximum structured generation output; between 1 and 4000.                   |
 | `AKP_ANSWER_TIMEOUT_SECONDS` | `30`                   | Total provider timeout; greater than 0 and at most 120 seconds.              |
-| `AKP_CORS_ALLOW_ORIGINS`   | `http://localhost:3000` | Comma-separated list of browser origins allowed to call the API.      |
+| `AKP_CORS_ALLOW_ORIGINS`   | `http://localhost:3000` | Comma-separated list (or JSON array) of browser origins allowed to call the API. |
+| `AKP_TRACING_ENABLED`      | `true`                  | Write per-request trace records under `<data_dir>/traces/` (ADR 6).   |
 
 Frontend (`apps/web/.env.local`, optional):
 
@@ -273,6 +280,7 @@ cd services/api && uv run mypy                  # strict type checking
 cd services/api && uv run pytest                # tests
 cd services/api && uv run python -m ai_knowledge_platform.retrieval.evaluation
 cd services/api && uv run python -m ai_knowledge_platform.answers.evaluation --validate-only
+cd services/api && uv run python -m ai_knowledge_platform.evaluation --validate-only
 
 cd apps/web && npm run lint       # Biome lint and format check
 cd apps/web && npm run typecheck  # tsc --noEmit
@@ -285,6 +293,11 @@ The dependency audit fails on any high or critical `npm audit` advisory, develop
 dependencies included, unless `apps/web/audit-allowlist.json` accepts it explicitly. Each
 accepted advisory records its GHSA id, package, reason and a `reviewBy` date; the gate
 also fails once that date passes or when an entry no longer matches a reported advisory.
+
+`make eval-offline` runs the schema v2 retrieval evaluation (pass `DATASET=path` for
+another dataset, e.g. `DATASET=evals/v2_nist_csf.json` for the draft NIST corpus) and writes a JSON and Markdown report per run to the git-ignored
+`services/api/evals/results/`. The dataset and report contract is described in
+[the v2 evaluation contract](docs/plans/evaluation-v2-contract.md).
 
 With `AKP_OPENAI_API_KEY` and `AKP_OPENAI_MODEL` configured:
 
@@ -310,6 +323,12 @@ locks, exercises both retry paths, checks ranked page evidence and retrieval mis
 shape-checks every payload before rendering it.
 
 ## Roadmap
+
+The single [study and implementation plan](ROADMAP.md) connects learning topics,
+implementation tasks, dependencies and acceptance evidence. It includes the active
+9–22 November 2026 schedule and the deferred long-term backlog. The current cut
+retains SQLite/FTS5 and the Python evaluators. Planned work below is not a claim of
+delivery.
 
 | Milestone | Scope                                                                        | State       |
 | --------- | ---------------------------------------------------------------------------- | ----------- |

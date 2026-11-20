@@ -18,6 +18,7 @@ from ai_knowledge_platform.answers.domain import (
     Evidence,
     GeneratedClaim,
     GenerationResult,
+    TokenUsage,
 )
 from ai_knowledge_platform.answers.ports import (
     GenerationInvalidResponseError,
@@ -94,8 +95,12 @@ class OpenAIAnswerGenerator:
         except (APIConnectionError, APIStatusError) as exc:
             raise GenerationProviderError from exc
 
+        # Read defensively: tracing metadata must never turn a valid answer into a failure.
+        model = getattr(response, "model", None)
+        model = model if isinstance(model, str) else None
+        usage = _token_usage(getattr(response, "usage", None))
         if _contains_refusal(response.output):
-            return GenerationResult(outcome=AnswerOutcome.SAFETY_REFUSED)
+            return GenerationResult(outcome=AnswerOutcome.SAFETY_REFUSED, model=model, usage=usage)
 
         if response.status != "completed":
             raise GenerationInvalidResponseError
@@ -113,10 +118,20 @@ class OpenAIAnswerGenerator:
                 )
                 for claim in parsed.claims
             ),
+            model=model,
+            usage=usage,
         )
 
     async def close(self) -> None:
         await self._client.close()
+
+
+def _token_usage(usage: object) -> TokenUsage | None:
+    input_tokens = getattr(usage, "input_tokens", None)
+    output_tokens = getattr(usage, "output_tokens", None)
+    if isinstance(input_tokens, int) and isinstance(output_tokens, int):
+        return TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens)
+    return None
 
 
 def _contains_refusal(output_items: object) -> bool:

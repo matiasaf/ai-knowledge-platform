@@ -1,11 +1,12 @@
 """Typed application settings loaded from the environment."""
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Anchoring relative paths to the service root keeps `uv run` behaviour identical
 # whether it is invoked from the repository root or from services/api.
@@ -42,7 +43,10 @@ class Settings(BaseSettings):
         DEFAULT_ANSWER_MAX_OUTPUT_TOKENS
     )
     answer_timeout_seconds: Annotated[float, Field(gt=0, le=120)] = DEFAULT_ANSWER_TIMEOUT_SECONDS
-    cors_allow_origins: list[str] = ["http://localhost:3000"]
+    # NoDecode stops pydantic-settings from JSON-decoding the raw environment value
+    # before the validator below can split the documented comma-separated form.
+    cors_allow_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
+    tracing_enabled: bool = True
 
     @field_validator("data_dir")
     @classmethod
@@ -54,8 +58,12 @@ class Settings(BaseSettings):
     def _split_comma_separated(cls, value: object) -> object:
         # Environment variables carry a comma-separated list so that .env files stay
         # readable; JSON would be the only alternative pydantic-settings accepts.
+        # A JSON array is still accepted for callers that already pass one.
         if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+            stripped = value.strip()
+            if stripped.startswith("["):
+                return json.loads(stripped)
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
         return value
 
     @model_validator(mode="after")
@@ -67,6 +75,11 @@ class Settings(BaseSettings):
     @property
     def documents_dir(self) -> Path:
         return self.data_dir / "documents"
+
+    @property
+    def traces_dir(self) -> Path:
+        # Operational history (ADR 6): separate from documents and the rebuildable index.
+        return self.data_dir / "traces"
 
     @property
     def knowledge_db_path(self) -> Path:

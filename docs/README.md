@@ -8,6 +8,14 @@ Use this page to load only the context needed for a task.
 - Agent operating guide and hard constraints: `../AGENTS.md`
 - Current resumable state: `../PROGRESS.md`
 
+## Architecture
+
+- `architecture/ingestion-flow.md`: upload, extraction and indexing sequence, **status**
+  transitions, guarantees and known gaps.
+- `architecture/backend-boundaries.md`: API layers, allowed imports, async/thread
+  usage and error mapping. Import rules are checked by
+  `services/api/tests/test_architecture_boundaries.py`.
+
 ## Architecture decisions
 
 - `adr/0001-local-file-storage-for-the-first-ingestion-slice.md`
@@ -15,6 +23,7 @@ Use this page to load only the context needed for a task.
 - `adr/0003-page-extraction-sidecars.md`
 - `adr/0004-sqlite-fts5-for-local-retrieval.md`
 - `adr/0005-structured-grounded-answer-pipeline.md`
+- `adr/0006-in-process-request-tracing.md`
 
 Read ADRs before changing storage, status vocabulary, extraction persistence, retrieval
 or grounded-answer boundaries. Add a new ADR when a durable architectural decision
@@ -22,7 +31,12 @@ changes; do not rewrite an accepted decision as if it had never existed.
 
 ## Plans and delivery history
 
-- `plans/roadmap.md`: 24-week milestone sequence, deliverables and required evidence.
+- [../ROADMAP.md](../ROADMAP.md): single study and implementation plan, active
+  November schedule, dependencies, acceptance criteria and deferred long-term backlog.
+- `plans/evaluation-v2-contract.md`: v2 dataset schema, labelling rules, retrieval
+  metrics and run report format.
+- `../services/api/evals/corpus/nist-csf.md`: provenance, license and rebuild steps for
+  the publishable NIST evaluation corpus.
 - `plans/`: implementation design and acceptance criteria for bounded milestones.
 - `progress/`: immutable-by-default delivery records describing what each completed
   slice actually shipped and verified.

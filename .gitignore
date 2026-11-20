@@ -30,6 +30,9 @@ apps/web/CLAUDE.md
 # Uploaded documents and other runtime data
 data/
 
+# Evaluation run reports; record chosen baselines in PROGRESS.md or docs
+services/api/evals/results/
+
 # Editors, tooling and OS
 .DS_Store
 .idea/

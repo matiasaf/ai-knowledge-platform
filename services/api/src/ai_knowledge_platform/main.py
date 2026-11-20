@@ -12,6 +12,11 @@ from ai_knowledge_platform.answers.openai_generator import OpenAIAnswerGenerator
 from ai_knowledge_platform.config import Settings, get_settings
 from ai_knowledge_platform.documents import router as documents
 from ai_knowledge_platform.errors import register_error_handlers
+from ai_knowledge_platform.observability.middleware import (
+    REQUEST_ID_HEADER,
+    JsonlTraceSink,
+    RequestTracingMiddleware,
+)
 from ai_knowledge_platform.retrieval import router as retrieval
 
 
@@ -50,6 +55,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_allow_origins,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
+        expose_headers=[REQUEST_ID_HEADER],
+    )
+    # Added last so it wraps CORS too: every response, including rejections, is traced.
+    app.add_middleware(
+        RequestTracingMiddleware,
+        sink=JsonlTraceSink(settings.traces_dir) if settings.tracing_enabled else None,
     )
     register_error_handlers(app)
     app.include_router(health.router)

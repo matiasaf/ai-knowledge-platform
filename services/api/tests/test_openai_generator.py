@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from ai_knowledge_platform.answers.domain import AnswerOutcome, Evidence
+from ai_knowledge_platform.answers.domain import AnswerOutcome, Evidence, TokenUsage
 from ai_knowledge_platform.answers.openai_generator import (
     OpenAIAnswerGenerator,
     ProviderAnswer,
@@ -49,6 +49,8 @@ async def _assert_responses_parse_call() -> None:
         return_value=SimpleNamespace(
             output=[],
             status="completed",
+            model="test-model-2026-01-01",
+            usage=SimpleNamespace(input_tokens=250, output_tokens=40, total_tokens=290),
             output_parsed=ProviderAnswer(
                 outcome="answered",
                 claims=[ProviderClaim(text="Use the people portal.", evidence_ids=["E1"])],
@@ -64,6 +66,8 @@ async def _assert_responses_parse_call() -> None:
 
     assert result.outcome is AnswerOutcome.ANSWERED
     assert result.claims[0].evidence_ids == ("E1",)
+    assert result.model == "test-model-2026-01-01"
+    assert result.usage == TokenUsage(input_tokens=250, output_tokens=40)
     assert parse.await_args is not None
     kwargs = parse.await_args.kwargs
     assert kwargs["model"] == "test-model"
@@ -100,6 +104,8 @@ async def _assert_provider_refusal() -> None:
 
     assert result.outcome is AnswerOutcome.SAFETY_REFUSED
     assert result.claims == ()
+    assert result.model is None
+    assert result.usage is None
 
 
 def test_rejects_an_absent_structured_output() -> None:
